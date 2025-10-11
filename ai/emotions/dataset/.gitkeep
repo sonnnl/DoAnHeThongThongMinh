@@ -1,0 +1,19 @@
+# Thư mục này chứa dataset cho emotion detection
+# Dataset đã có sẵn theo yêu cầu
+# 
+# Format:
+# text,emotion
+# "Tôi rất vui...",joy
+# "Buồn quá...",sadness
+# "Tức quá đi!",anger
+#
+# Emotions:
+# - joy (vui vẻ)
+# - sadness (buồn)
+# - anger (tức giận)
+# - fear (sợ hãi)
+# - surprise (ngạc nhiên)
+# - neutral (trung tính)
+# - love (yêu thích)
+# - disgust (ghê tởm)
+

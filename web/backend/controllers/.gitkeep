@@ -1,0 +1,11 @@
+# Thư mục này chứa các controllers (business logic)
+# TODO: Implement controllers cho:
+# - authController.js
+# - userController.js
+# - categoryController.js
+# - postController.js
+# - commentController.js
+# - voteController.js
+# - reportController.js
+# - uploadController.js
+

@@ -1,0 +1,18 @@
+# Thư mục này chứa các page components
+# Pages:
+# - Home.jsx (trang chủ với list posts)
+# - Login.jsx
+# - Register.jsx
+# - PostDetail.jsx (chi tiết post + comments)
+# - CreatePost.jsx
+# - EditPost.jsx
+# - Profile.jsx (profile user)
+# - EditProfile.jsx
+# - Category.jsx (posts trong category)
+# - Search.jsx (tìm kiếm posts)
+# - NotFound.jsx (404)
+# - Admin/Dashboard.jsx
+# - Admin/Users.jsx
+# - Admin/Categories.jsx
+# - Admin/Reports.jsx
+

@@ -1,0 +1,12 @@
+# Thư mục này chứa API service functions
+# Services:
+# - api.js (axios instance với interceptors)
+# - authService.js (login, register, logout, ...)
+# - userService.js (getProfile, updateProfile, ...)
+# - postService.js (getPosts, getPost, createPost, ...)
+# - commentService.js (getComments, createComment, ...)
+# - voteService.js (upvote, downvote)
+# - reportService.js (createReport, ...)
+# - uploadService.js (uploadImage, uploadVideo)
+# - categoryService.js (getCategories, ...)
+

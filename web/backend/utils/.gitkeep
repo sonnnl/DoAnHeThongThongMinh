@@ -1,0 +1,9 @@
+# Thư mục này chứa các utility functions
+# Ví dụ:
+# - email.js (send email)
+# - jwt.js (generate/verify tokens)
+# - slugify.js (tạo slug)
+# - pagination.js
+# - validators.js
+# - aiService.js (call AI API)
+

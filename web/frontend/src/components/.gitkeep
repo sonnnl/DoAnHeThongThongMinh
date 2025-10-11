@@ -1,0 +1,10 @@
+# Thư mục này chứa React components
+# Cấu trúc đề xuất:
+# - common/ (Button, Input, Modal, Card, Badge, ...)
+# - layout/ (Header, Footer, Sidebar, Navbar, ...)
+# - post/ (PostCard, PostList, PostForm, PostDetail, ...)
+# - comment/ (CommentItem, CommentList, CommentForm, ...)
+# - user/ (UserCard, UserProfile, UserBadge, UserAvatar, ...)
+# - category/ (CategoryCard, CategoryList, ...)
+# - admin/ (AdminPanel, UserManagement, CategoryManagement, ...)
+
