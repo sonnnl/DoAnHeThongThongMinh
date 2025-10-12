@@ -93,6 +93,14 @@ const postSchema = new mongoose.Schema(
       },
     ],
 
+    // Mentions (@username)
+    mentions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     // Statistics
     stats: {
       upvotes: {
@@ -169,6 +177,14 @@ const postSchema = new mongoose.Schema(
     isFeatured: {
       type: Boolean,
       default: false,
+    },
+    isNSFW: {
+      type: Boolean,
+      default: false, // Not Safe For Work content
+    },
+    allowComments: {
+      type: Boolean,
+      default: true, // Cho phép comments
     },
     removedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -281,11 +297,9 @@ postSchema.methods.removeDownvote = async function () {
   this.updateScore();
   await this.save();
 
-  await mongoose
-    .model("User")
-    .findByIdAndUpdate(this.author, {
-      $inc: { "stats.downvotesReceived": -1 },
-    });
+  await mongoose.model("User").findByIdAndUpdate(this.author, {
+    $inc: { "stats.downvotesReceived": -1 },
+  });
 };
 
 // Pre-save: Auto generate slug
@@ -326,6 +340,8 @@ postSchema.index({ "stats.upvotes": -1 }); // Top posts
 postSchema.index({ createdAt: -1 }); // New posts
 postSchema.index({ status: 1 });
 postSchema.index({ tags: 1 });
+postSchema.index({ mentions: 1 }); // Mentions lookup
+postSchema.index({ isNSFW: 1 }); // Filter NSFW content
 postSchema.index({ "aiAnalysis.isToxic": 1 });
 postSchema.index({ "aiAnalysis.isSpam": 1 });
 

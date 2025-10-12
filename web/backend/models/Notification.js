@@ -45,6 +45,9 @@ const notificationSchema = new mongoose.Schema(
         "comment_reply", // Ai đó reply comment của bạn
         "comment_mention", // Ai đó mention bạn trong comment
 
+        // User related
+        "user_followed", // Ai đó follow bạn
+
         // Direct message
         "new_message", // Tin nhắn mới
 

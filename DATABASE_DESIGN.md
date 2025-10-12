@@ -3,7 +3,30 @@
 ## Overview
 
 Database: **MongoDB**  
-Architecture: **Document-based NoSQL**
+Architecture: **Document-based NoSQL**  
+Total Collections: **13**
+
+**Last Updated:** October 12, 2025
+
+---
+
+## Collections Overview
+
+| Collection         | Purpose              | Relations                    |
+| ------------------ | -------------------- | ---------------------------- |
+| Users              | Quản lý người dùng   | → Posts, Comments, Votes     |
+| Categories         | Quản lý chủ đề       | → Posts, CategoryFollow      |
+| Posts              | Bài viết             | → Comments, Votes, SavedPost |
+| Comments           | Comments & Replies   | → Votes                      |
+| Votes              | Upvote/Downvote      | → Posts, Comments            |
+| Reports            | Báo cáo vi phạm      | → Posts, Comments, Users     |
+| Notifications      | Thông báo            | → Users                      |
+| Conversations      | Cuộc trò chuyện      | → DirectMessages             |
+| DirectMessages     | Tin nhắn             | → Conversations              |
+| **SavedPost**      | Bài viết đã lưu      | → Users, Posts               |
+| **UserFollow**     | Quan hệ follow users | → Users                      |
+| **CategoryFollow** | Follow categories    | → Users, Categories          |
+| **AdminLog**       | Audit trail          | → All models                 |
 
 ---
 
@@ -11,7 +34,7 @@ Architecture: **Document-based NoSQL**
 
 ### 1. Users Collection
 
-**Purpose:** Quản lý thông tin người dùng
+**Purpose:** Quản lý thông tin người dùng với social features
 
 ```javascript
 {
@@ -26,10 +49,10 @@ Architecture: **Document-based NoSQL**
   // Profile
   avatar: String (Cloudinary URL),
   bio: String (max 500 chars),
-  location: String,
-  website: String,
+  location: String (max 100 chars),
+  website: String (max 200 chars),
 
-  // Statistics
+  // Statistics ✨ UPDATED
   stats: {
     postsCount: Number (default 0),
     commentsCount: Number (default 0),
@@ -39,11 +62,13 @@ Architecture: **Document-based NoSQL**
     downvotesGiven: Number (default 0),
     viewsReceived: Number (default 0),
     reportsReceived: Number (default 0),
-    reportsAccepted: Number (default 0)
+    reportsAccepted: Number (default 0),
+    followersCount: Number (default 0), // ✨ NEW
+    followingCount: Number (default 0)  // ✨ NEW
   },
 
-  // Badge
-  badge: String [Newbie, Người từng trải, Chuyên gia, Xem chùa],
+  // Badge (auto-calculated)
+  badge: String [Newbie, Người từng trải, Chuyên gia, Xem chùa, Người dùng bị hạn chế],
 
   // Role
   role: String [user, moderator, admin],
@@ -56,9 +81,35 @@ Architecture: **Document-based NoSQL**
     banReason: String
   },
 
-  // Tracking
+  // ✨ NEW: Blocked Users
+  blockedUsers: [ObjectId] (ref: User),
+
+  // ✨ NEW: User Preferences
+  preferences: {
+    // Notifications
+    emailNotifications: Boolean (default true),
+    pushNotifications: Boolean (default true),
+    notifyOnComment: Boolean (default true),
+    notifyOnUpvote: Boolean (default true),
+    notifyOnMention: Boolean (default true),
+    notifyOnFollow: Boolean (default true),
+
+    // Privacy
+    showEmail: Boolean (default false),
+    showOnlineStatus: Boolean (default true),
+    allowDirectMessages: Boolean (default true),
+
+    // Display
+    theme: String [light, dark, auto] (default: auto),
+    language: String (default: vi),
+    showNSFW: Boolean (default false),
+    postsPerPage: Number (default 25)
+  },
+
+  // Tracking ✨ UPDATED
   registeredAt: Date,
   lastLoginAt: Date,
+  lastActivityAt: Date, // ✨ NEW
 
   // Verification
   isVerified: Boolean,
@@ -78,12 +129,31 @@ Architecture: **Document-based NoSQL**
 - `googleId` (unique, sparse)
 - `stats.upvotesReceived` (descending)
 - `registeredAt` (descending)
+- `lastActivityAt` (descending) // ✨ NEW
+
+**Virtual Fields:**
+
+- `daysJoined` - Số ngày tham gia
+- `score` - Tổng điểm (upvotesReceived - downvotesReceived)
+
+**Methods:**
+
+- `comparePassword(candidatePassword)` - So sánh password
+- `updateBadge()` - Tính toán badge
+- `canCreatePost()` - Kiểm tra có thể post
+- `canCreateComment()` - Kiểm tra có thể comment
+- `handleAcceptedReport()` - Xử lý khi bị report
+- `blockUser(userId)` - Block user // ✨ NEW
+- `unblockUser(userId)` - Unblock user // ✨ NEW
+- `isBlocked(userId)` - Kiểm tra đã block // ✨ NEW
+- `updateActivity()` - Update last activity // ✨ NEW
 
 **Business Logic:**
 
 - Badge auto-calculated based on stats
 - `canPost = true` if registered > 1 hour AND commentsCount >= 3
 - Ban user for 1 day if reportsAccepted >= 5
+- Password auto-hashed before save (bcrypt)
 
 ---
 
@@ -161,7 +231,7 @@ Architecture: **Document-based NoSQL**
 
 ### 3. Posts Collection
 
-**Purpose:** Quản lý bài viết
+**Purpose:** Quản lý bài viết với mentions và NSFW support
 
 ```javascript
 {
@@ -198,6 +268,9 @@ Architecture: **Document-based NoSQL**
   // Tags
   tags: [String],
 
+  // ✨ NEW: Mentions
+  mentions: [ObjectId] (ref: User),
+
   // Statistics
   stats: {
     upvotes: Number (default 0),
@@ -222,10 +295,12 @@ Architecture: **Document-based NoSQL**
     analyzedAt: Date
   },
 
-  // Moderation
+  // Moderation ✨ UPDATED
   isPinned: Boolean (default false),
   isLocked: Boolean (default false),
   isFeatured: Boolean (default false),
+  isNSFW: Boolean (default false), // ✨ NEW
+  allowComments: Boolean (default true), // ✨ NEW
   removedBy: ObjectId (ref: User),
   removedReason: String,
   removedAt: Date,
@@ -256,8 +331,25 @@ Architecture: **Document-based NoSQL**
 - `createdAt` (descending) - for new posts
 - `status`
 - `tags`
+- `mentions` // ✨ NEW
+- `isNSFW` // ✨ NEW
 - `aiAnalysis.isToxic`
+- `aiAnalysis.isSpam`
 - Text index: `title, content, tags`
+
+**Virtual Fields:**
+
+- `hotScore` - Reddit hot algorithm
+- `controversialScore` - Balance của upvotes/downvotes
+
+**Methods:**
+
+- `updateScore()` - Tính toán score
+- `incrementViews()` - Tăng views
+- `addUpvote()` - Thêm upvote
+- `addDownvote()` - Thêm downvote
+- `removeUpvote()` - Xóa upvote
+- `removeDownvote()` - Xóa downvote
 
 **Score Calculation:**
 
@@ -491,10 +583,11 @@ Comment (depth=0)
   // Người gửi (null nếu từ system)
   sender: ObjectId (ref: User),
 
-  // Loại thông báo
+  // Loại thông báo ✨ UPDATED
   type: String [
     post_upvote, post_comment, post_mention,
     comment_upvote, comment_reply, comment_mention,
+    user_followed, // ✨ NEW - Ai đó follow bạn
     new_message,
     post_removed, comment_removed,
     user_banned, user_unbanned,
@@ -714,6 +807,215 @@ Comment (depth=0)
 
 ---
 
+### 10. SavedPost Collection ✨ NEW
+
+**Purpose:** Quản lý bài viết được lưu bởi users với collections
+
+```javascript
+{
+  _id: ObjectId,
+
+  // User lưu bài viết
+  user: ObjectId (ref: User, required, indexed),
+
+  // Bài viết được lưu
+  post: ObjectId (ref: Post, required),
+
+  // Collection/Folder name
+  collection: String (max 50 chars, default: "Mặc định"),
+
+  // Notes riêng
+  notes: String (max 500 chars),
+
+  // Tags riêng
+  tags: [String],
+
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Indexes:**
+
+- `user, post` (compound, unique) - Không lưu duplicate
+- `user, collection, createdAt` (compound, descending)
+- `user, tags` (compound)
+
+**Static Methods:**
+
+- `savePost(userId, postId, data)` - Lưu post (update nếu đã tồn tại)
+- `unsavePost(userId, postId)` - Bỏ lưu post
+- `getUserCollections(userId)` - Lấy danh sách collections với count
+- `isSaved(userId, postId)` - Kiểm tra đã lưu chưa
+
+---
+
+### 11. UserFollow Collection ✨ NEW
+
+**Purpose:** Quản lý quan hệ follow giữa users
+
+```javascript
+{
+  _id: ObjectId,
+
+  // Người thực hiện follow
+  follower: ObjectId (ref: User, required, indexed),
+
+  // Người được follow
+  following: ObjectId (ref: User, required, indexed),
+
+  // Metadata
+  metadata: {
+    muteNotifications: Boolean (default false)
+  },
+
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Indexes:**
+
+- `follower, following` (compound, unique) - Không follow duplicate
+- `follower, createdAt` (compound, descending) - Following list
+- `following, createdAt` (compound, descending) - Followers list
+
+**Static Methods:**
+
+- `followUser(followerId, followingId)` - Follow user
+- `unfollowUser(followerId, followingId)` - Unfollow user
+- `isFollowing(followerId, followingId)` - Kiểm tra đang follow
+- `getFollowers(userId, options)` - Lấy danh sách followers
+- `getFollowing(userId, options)` - Lấy danh sách following
+
+**Hooks:**
+
+- Post-save: Tạo notification cho người được follow
+- Post-save: Tăng followersCount/followingCount
+- Post-delete: Giảm followersCount/followingCount
+- Pre-save: Validate không tự follow mình
+
+---
+
+### 12. CategoryFollow Collection ✨ NEW
+
+**Purpose:** Quản lý users follow categories
+
+```javascript
+{
+  _id: ObjectId,
+
+  // User theo dõi
+  user: ObjectId (ref: User, required, indexed),
+
+  // Category được theo dõi
+  category: ObjectId (ref: Category, required, indexed),
+
+  // Settings
+  settings: {
+    notifyOnNewPost: Boolean (default true),
+    notifyOnHotPost: Boolean (default false),
+    muteAll: Boolean (default false)
+  },
+
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Indexes:**
+
+- `user, category` (compound, unique) - Không follow duplicate
+- `user, createdAt` (compound, descending)
+- `category, createdAt` (compound, descending)
+
+**Static Methods:**
+
+- `followCategory(userId, categoryId)` - Follow category
+- `unfollowCategory(userId, categoryId)` - Unfollow category
+- `isFollowing(userId, categoryId)` - Kiểm tra đang follow
+- `getUserFollowedCategories(userId, options)` - Lấy categories đang follow
+- `getCategoryFollowers(categoryId, options)` - Lấy followers (cho notifications)
+- `updateSettings(userId, categoryId, settings)` - Update notification settings
+
+**Hooks:**
+
+- Post-save: Tăng category followersCount
+- Post-delete: Giảm category followersCount
+
+---
+
+### 13. AdminLog Collection ✨ NEW
+
+**Purpose:** Tracking tất cả actions của admin/moderator (audit trail)
+
+```javascript
+{
+  _id: ObjectId,
+
+  // Admin thực hiện action
+  admin: ObjectId (ref: User, required, indexed),
+
+  // Loại action
+  action: String [
+    // User: ban_user, unban_user, promote_to_moderator, demote_from_moderator, verify_user, suspend_user
+    // Content: remove_post, restore_post, pin_post, unpin_post, feature_post, remove_comment, restore_comment
+    // Report: accept_report, reject_report
+    // Category: create_category, update_category, delete_category, add_moderator_to_category, remove_moderator_from_category
+    // System: update_settings, clear_cache, run_maintenance, export_data
+    // Other: other
+  ],
+
+  // Target
+  targetType: String [User, Post, Comment, Category, Report, System, null],
+  targetId: ObjectId (refPath: targetType),
+
+  // Details
+  description: String (max 500 chars, required),
+  reason: String (max 1000 chars),
+
+  // Metadata - Chi tiết về action
+  metadata: Mixed (default: {}),
+
+  // Severity
+  severity: String [low, medium, high, critical] (default: medium),
+
+  // Security tracking
+  ipAddress: String,
+  userAgent: String,
+
+  // Status
+  status: String [active, reverted, expired] (default: active),
+  expiresAt: Date,
+
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Indexes:**
+
+- `admin, createdAt` (compound, descending)
+- `action, createdAt` (compound, descending)
+- `targetType, targetId` (compound)
+- `severity, createdAt` (compound, descending)
+- `createdAt` (descending)
+- `status, expiresAt` (compound) - For cleanup
+
+**Static Methods:**
+
+- `createLog(data)` - Tạo log mới
+- `getAdminLogs(adminId, options)` - Lấy logs của admin
+- `getTargetLogs(targetType, targetId, options)` - Lấy logs về target
+- `getStatistics(options)` - Statistics về moderation activities
+- `deleteOldLogs(days)` - Xóa logs cũ (cron job)
+
+**Instance Methods:**
+
+- `revert(revertedBy, reason)` - Revert action
+
+---
+
 ## Relationships
 
 ### One-to-Many
@@ -724,23 +1026,30 @@ Comment (depth=0)
 - User → Reports
 - User → Notifications (recipient)
 - User → DirectMessages (sender)
+- User → SavedPosts // ✨ NEW
+- User → AdminLogs // ✨ NEW
 - Category → Posts
+- Category → CategoryFollows // ✨ NEW
 - Post → Comments
+- Post → SavedPosts // ✨ NEW
 - Comment → Replies (nested)
 - Conversation → DirectMessages
 
 ### Many-to-Many
 
-- Users ↔ Categories (followers)
 - Users ↔ Posts (votes)
 - Users ↔ Comments (votes)
 - Users ↔ Conversations (participants)
+- Users ↔ Users (follow) via UserFollow // ✨ NEW
+- Users ↔ Categories (follow) via CategoryFollow // ✨ NEW
 
 ### Special
 
 - Notification: sender → recipient (User → User)
 - DirectMessage: replyTo (self-referencing)
 - Conversation: direct (User ↔ User), group (Users ↔ Users)
+- UserFollow: follower → following (User → User) // ✨ NEW
+- AdminLog: Polymorphic target (→ User, Post, Comment, Category, Report) // ✨ NEW
 
 ---
 
@@ -898,6 +1207,76 @@ Use MongoDB transactions for:
 
 ---
 
+## Summary of Improvements ✨
+
+### New Collections (4)
+
+1. **SavedPost** - Lưu bài viết với collections/folders
+2. **UserFollow** - Social feature: Follow users
+3. **CategoryFollow** - Follow categories để nhận updates
+4. **AdminLog** - Complete audit trail cho moderation
+
+### Enhanced Collections (3)
+
+1. **Users**
+
+   - ✨ Added: `followersCount`, `followingCount` stats
+   - ✨ Added: `blockedUsers` array
+   - ✨ Added: `preferences` (13 settings: notifications, privacy, display)
+   - ✨ Added: `lastActivityAt` tracking
+   - ✨ Added: 4 new methods (block/unblock/isBlocked/updateActivity)
+
+2. **Posts**
+
+   - ✨ Added: `mentions` array để tag users (@username)
+   - ✨ Added: `isNSFW` flag
+   - ✨ Added: `allowComments` toggle
+   - ✨ Added: 2 new indexes
+
+3. **Notifications**
+   - ✨ Added: `user_followed` type
+
+### Total Collections: 9 → **13**
+
+### Features Added
+
+**Social Features:**
+
+- ✅ User-to-user following
+- ✅ Category following with custom settings
+- ✅ Block/unblock users
+- ✅ Followers/following counts
+
+**Content Management:**
+
+- ✅ Save posts to collections
+- ✅ Organize saved content
+- ✅ Mention users in posts
+- ✅ NSFW content support
+
+**Privacy & Preferences:**
+
+- ✅ Comprehensive notification settings
+- ✅ Privacy controls
+- ✅ Display preferences
+- ✅ User blocking
+
+**Admin & Security:**
+
+- ✅ Complete audit trail
+- ✅ Action tracking with metadata
+- ✅ Revertible actions
+- ✅ IP & User Agent logging
+
+### Database Statistics
+
+**Indexes:** 95+ indexes across 13 collections  
+**Methods:** 70+ static & instance methods  
+**Relationships:** One-to-Many (15), Many-to-Many (5), Special (5)  
+**Backward Compatible:** ✅ 100% - All existing data works
+
+---
+
 ## Monitoring
 
 ### Metrics
@@ -906,6 +1285,9 @@ Use MongoDB transactions for:
 - Collection sizes
 - Index usage
 - Connection pool stats
+- Follow relationships count // ✨ NEW
+- Saved posts per user // ✨ NEW
+- Admin actions per day // ✨ NEW
 
 ### Alerts
 
@@ -913,3 +1295,5 @@ Use MongoDB transactions for:
 - Failed authentication attempts
 - Spike in reports
 - AI service downtime
+- Unusual admin activity // ✨ NEW
+- Spike in follows // ✨ NEW

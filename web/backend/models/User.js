@@ -108,6 +108,14 @@ const userSchema = new mongoose.Schema(
         type: Number,
         default: 0, // Số lần bị report và report đó được chấp nhận
       },
+      followersCount: {
+        type: Number,
+        default: 0,
+      },
+      followingCount: {
+        type: Number,
+        default: 0,
+      },
     },
 
     // Badge/Biệt hiệu (auto calculated)
@@ -154,12 +162,86 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // Blocked users
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // User preferences
+    preferences: {
+      // Notifications
+      emailNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      pushNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      notifyOnComment: {
+        type: Boolean,
+        default: true,
+      },
+      notifyOnUpvote: {
+        type: Boolean,
+        default: true,
+      },
+      notifyOnMention: {
+        type: Boolean,
+        default: true,
+      },
+      notifyOnFollow: {
+        type: Boolean,
+        default: true,
+      },
+
+      // Privacy
+      showEmail: {
+        type: Boolean,
+        default: false,
+      },
+      showOnlineStatus: {
+        type: Boolean,
+        default: true,
+      },
+      allowDirectMessages: {
+        type: Boolean,
+        default: true,
+      },
+
+      // Display
+      theme: {
+        type: String,
+        enum: ["light", "dark", "auto"],
+        default: "auto",
+      },
+      language: {
+        type: String,
+        default: "vi",
+      },
+      showNSFW: {
+        type: Boolean,
+        default: false,
+      },
+      postsPerPage: {
+        type: Number,
+        default: 25,
+      },
+    },
+
     // Tracking
     registeredAt: {
       type: Date,
       default: Date.now,
     },
     lastLoginAt: {
+      type: Date,
+      default: Date.now,
+    },
+    lastActivityAt: {
       type: Date,
       default: Date.now,
     },
@@ -316,11 +398,39 @@ userSchema.methods.handleAcceptedReport = function () {
   this.updateBadge();
 };
 
+// Method: Block user
+userSchema.methods.blockUser = async function (userId) {
+  if (!this.blockedUsers.includes(userId)) {
+    this.blockedUsers.push(userId);
+    await this.save();
+  }
+};
+
+// Method: Unblock user
+userSchema.methods.unblockUser = async function (userId) {
+  this.blockedUsers = this.blockedUsers.filter(
+    (id) => id.toString() !== userId.toString()
+  );
+  await this.save();
+};
+
+// Method: Kiểm tra có block user không
+userSchema.methods.isBlocked = function (userId) {
+  return this.blockedUsers.some((id) => id.toString() === userId.toString());
+};
+
+// Method: Update last activity
+userSchema.methods.updateActivity = async function () {
+  this.lastActivityAt = Date.now();
+  await this.save();
+};
+
 // Index để tìm kiếm nhanh
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ googleId: 1 });
 userSchema.index({ "stats.upvotesReceived": -1 });
 userSchema.index({ registeredAt: -1 });
+userSchema.index({ lastActivityAt: -1 });
 
 module.exports = mongoose.model("User", userSchema);
