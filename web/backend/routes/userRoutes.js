@@ -9,62 +9,72 @@
 const express = require("express");
 const router = express.Router();
 
-const { authenticate, isAdmin } = require("../middleware/auth");
-const {
-  validateMongoId,
-  validatePagination,
-} = require("../middleware/validate");
+const { authenticate, optionalAuth } = require("../middleware/auth");
+const userController = require("../controllers/userController");
 
-// @route   GET /api/users
-// @desc    Lấy danh sách users (admin)
-// @access  Private (Admin)
-router.get("/", authenticate, isAdmin, validatePagination, (req, res) => {
-  res.json({ message: "Get users - TODO" });
-});
-
-// @route   GET /api/users/:id
-// @desc    Lấy profile user
+// @route   GET /api/users/search
+// @desc    Tìm kiếm users
 // @access  Public
-router.get("/:id", validateMongoId("id"), (req, res) => {
-  res.json({ message: "Get user profile - TODO" });
-});
+router.get("/search", userController.searchUsers);
 
-// @route   PUT /api/users/:id
+// @route   GET /api/users/:username
+// @desc    Lấy profile user theo username
+// @access  Public
+router.get("/:username", optionalAuth, userController.getUserProfile);
+
+// @route   PUT /api/users/profile
 // @desc    Update profile
-// @access  Private (Own profile only)
-router.put("/:id", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Update profile - TODO" });
-});
-
-// @route   POST /api/users/:id/avatar
-// @desc    Upload avatar
 // @access  Private
-router.post("/:id/avatar", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Upload avatar - TODO" });
-});
+router.put("/profile", authenticate, userController.updateProfile);
 
-// @route   GET /api/users/:id/posts
+// @route   PUT /api/users/change-password
+// @desc    Đổi mật khẩu
+// @access  Private
+router.put("/change-password", authenticate, userController.changePassword);
+
+// @route   POST /api/users/:userId/follow
+// @desc    Follow user
+// @access  Private
+router.post("/:userId/follow", authenticate, userController.followUser);
+
+// @route   DELETE /api/users/:userId/follow
+// @desc    Unfollow user
+// @access  Private
+router.delete("/:userId/follow", authenticate, userController.unfollowUser);
+
+// @route   GET /api/users/:userId/followers
+// @desc    Lấy danh sách followers
+// @access  Public
+router.get("/:userId/followers", userController.getFollowers);
+
+// @route   GET /api/users/:userId/following
+// @desc    Lấy danh sách following
+// @access  Public
+router.get("/:userId/following", userController.getFollowing);
+
+// @route   POST /api/users/:userId/block
+// @desc    Block user
+// @access  Private
+router.post("/:userId/block", authenticate, userController.blockUser);
+
+// @route   DELETE /api/users/:userId/block
+// @desc    Unblock user
+// @access  Private
+router.delete("/:userId/block", authenticate, userController.unblockUser);
+
+// @route   GET /api/users/:userId/posts
 // @desc    Lấy posts của user
 // @access  Public
-router.get(
-  "/:id/posts",
-  validateMongoId("id"),
-  validatePagination,
-  (req, res) => {
-    res.json({ message: "Get user posts - TODO" });
-  }
-);
+router.get("/:userId/posts", userController.getUserPosts);
 
-// @route   GET /api/users/:id/comments
+// @route   GET /api/users/:userId/comments
 // @desc    Lấy comments của user
 // @access  Public
-router.get(
-  "/:id/comments",
-  validateMongoId("id"),
-  validatePagination,
-  (req, res) => {
-    res.json({ message: "Get user comments - TODO" });
-  }
-);
+router.get("/:userId/comments", userController.getUserComments);
+
+// @route   PUT /api/users/preferences
+// @desc    Update preferences
+// @access  Private
+router.put("/preferences", authenticate, userController.updatePreferences);
 
 module.exports = router;

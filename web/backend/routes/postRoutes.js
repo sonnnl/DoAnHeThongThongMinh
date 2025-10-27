@@ -9,53 +9,57 @@
 const express = require("express");
 const router = express.Router();
 
-const { authenticate, canPost, optionalAuth } = require("../middleware/auth");
-const {
-  validateCreatePost,
-  validateUpdatePost,
-  validateMongoId,
-  validatePagination,
-} = require("../middleware/validate");
+const { authenticate, optionalAuth } = require("../middleware/auth");
+const postController = require("../controllers/postController");
+
+// @route   GET /api/posts/search
+// @desc    Tìm kiếm posts
+// @access  Public
+router.get("/search", postController.searchPosts);
+
+// @route   GET /api/posts/trending
+// @desc    Lấy trending posts
+// @access  Public
+router.get("/trending", postController.getTrendingPosts);
+
+// @route   GET /api/posts/saved
+// @desc    Lấy saved posts
+// @access  Private
+router.get("/saved", authenticate, postController.getSavedPosts);
 
 // @route   GET /api/posts
 // @desc    Lấy danh sách posts (hot, new, top)
 // @access  Public
-router.get("/", validatePagination, (req, res) => {
-  res.json({ message: "Get posts - TODO" });
-});
+router.get("/", optionalAuth, postController.getPosts);
+
+// @route   POST /api/posts
+// @desc    Tạo post mới
+// @access  Private
+router.post("/", authenticate, postController.createPost);
 
 // @route   GET /api/posts/:slug
 // @desc    Lấy chi tiết post
 // @access  Public (with optional auth for vote status)
-router.get("/:slug", optionalAuth, (req, res) => {
-  res.json({ message: "Get post detail - TODO" });
-});
+router.get("/:slug", optionalAuth, postController.getPost);
 
-// @route   POST /api/posts
-// @desc    Tạo post mới
-// @access  Private (requires canPost)
-router.post("/", authenticate, canPost, validateCreatePost, (req, res) => {
-  res.json({ message: "Create post - TODO" });
-});
-
-// @route   PUT /api/posts/:id
+// @route   PUT /api/posts/:postId
 // @desc    Update post
 // @access  Private (author only)
-router.put(
-  "/:id",
-  authenticate,
-  validateMongoId("id"),
-  validateUpdatePost,
-  (req, res) => {
-    res.json({ message: "Update post - TODO" });
-  }
-);
+router.put("/:postId", authenticate, postController.updatePost);
 
-// @route   DELETE /api/posts/:id
+// @route   DELETE /api/posts/:postId
 // @desc    Xóa post
 // @access  Private (author only)
-router.delete("/:id", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Delete post - TODO" });
-});
+router.delete("/:postId", authenticate, postController.deletePost);
+
+// @route   POST /api/posts/:postId/save
+// @desc    Save post
+// @access  Private
+router.post("/:postId/save", authenticate, postController.savePost);
+
+// @route   DELETE /api/posts/:postId/save
+// @desc    Unsave post
+// @access  Private
+router.delete("/:postId/save", authenticate, postController.unsavePost);
 
 module.exports = router;

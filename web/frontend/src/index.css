@@ -1,0 +1,181 @@
+/**
+ * FILE: web/frontend/src/index.css
+ * MỤC ĐÍCH: Global styles và Tailwind imports
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-base-200;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-base-300 rounded-lg;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-base-content/30;
+}
+
+/* Markdown content styles */
+.markdown-content {
+  @apply prose prose-sm md:prose-base lg:prose-lg max-w-none;
+}
+
+.markdown-content pre {
+  @apply bg-base-200 rounded-lg p-4 overflow-x-auto;
+}
+
+.markdown-content code {
+  @apply bg-base-200 px-1 py-0.5 rounded text-sm;
+}
+
+.markdown-content img {
+  @apply rounded-lg;
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+/* Loading spinner */
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Badge styles */
+.badge-newbie {
+  @apply badge badge-neutral;
+}
+
+.badge-experienced {
+  @apply badge badge-primary;
+}
+
+.badge-expert {
+  @apply badge badge-secondary;
+}
+
+.badge-lurker {
+  @apply badge badge-ghost;
+}
+
+.badge-restricted {
+  @apply badge badge-error;
+}
+
+/* Vote button styles */
+.vote-button {
+  @apply btn btn-ghost btn-sm btn-circle transition-all;
+}
+
+.vote-button.upvoted {
+  @apply text-success;
+}
+
+.vote-button.downvoted {
+  @apply text-error;
+}
+
+/* Emotion backgrounds for comments */
+.emotion-joy {
+  @apply bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400;
+}
+
+.emotion-sadness {
+  @apply bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400;
+}
+
+.emotion-anger {
+  @apply bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400;
+}
+
+.emotion-fear {
+  @apply bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400;
+}
+
+.emotion-surprise {
+  @apply bg-pink-50 dark:bg-pink-900/20 border-l-4 border-pink-400;
+}
+
+.emotion-neutral {
+  @apply bg-gray-50 dark:bg-gray-900/20 border-l-4 border-gray-400;
+}

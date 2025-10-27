@@ -1,288 +1,64 @@
-# Forum Thảo Luận - Đồ Án HTTM
+# Forum - Hệ thống thảo luận thông minh
 
-Dự án forum thảo luận tương tự VOZ, Reddit với tích hợp AI phát hiện spam, toxic và cảm xúc.
+Đồ án môn học **Hệ thống thông minh** - Forum thảo luận tương tự VOZ/Reddit với tích hợp AI.
 
-## 📋 Tổng Quan
+## 🎯 Tổng quan
 
-Đây là đồ án môn Hệ thống Thông minh, xây dựng một forum thảo luận với các tính năng:
+Dự án xây dựng một nền tảng forum thảo luận với các tính năng:
 
-### Tính Năng Chính
+- 🔐 **Đăng nhập Google OAuth** (chỉ Google, không có email/password)
+- 💬 Đăng bài, bình luận với hệ thống vote (upvote/downvote)
+- 👥 User profile với badge system (Newbie, Chuyên gia, Xem chùa, ...)
+- 📁 Quản lý categories
+- 🤖 **AI Integration**: Phát hiện toxic content, phân tích cảm xúc
+- 📊 Report system cho vi phạm
+- 💌 Direct messaging
+- 🔔 Real-time notifications
+- 🌓 Dark/Light mode
 
-#### 🙋 User Management
+> **Lưu ý đặc biệt:** Dự án này CHỈ hỗ trợ đăng nhập bằng Google OAuth để đơn giản hóa authentication và tập trung vào các tính năng AI.
 
-- Đăng ký/Đăng nhập (email + password hoặc Google OAuth)
-- Profile với avatar, bio, thống kê
-- Hệ thống badge/biệt hiệu: Newbie, Người từng trải, Chuyên gia, Xem chùa
-- Tracking: số ngày tham gia, upvotes/downvotes nhận được
-- Restrictions: ban user, cấm comment/post
+## 🛠️ Tech Stack
 
-#### 📁 Categories
+### Backend
 
-- Admin tạo categories/subcategories
-- Icon, màu sắc, cover image cho mỗi category
-- Đếm số posts, comments, views
-- Rules riêng cho từng category
-
-#### 📝 Posts
-
-- Tạo bài viết với title, content (rich text)
-- Upload ảnh và video (max 25MB)
-- Tags
-- Upvote/downvote system
-- Đếm views, comments
-- Tính score theo thuật toán Hot (Reddit-style)
-- Pin, lock, feature posts
-
-#### 💬 Comments
-
-- Nested comments (replies)
-- Upload ảnh trong comment
-- Chỉnh sửa, xóa (soft delete - giữ structure nếu có replies)
-- Upvote/downvote
-- Hiển thị "[Bình luận này đã bị xóa]" khi có reply
-
-#### 🚨 Report System
-
-- User report posts/comments/users
-- Lý do: spam, harassment, hate_speech, violence, etc.
-- Moderator review và accept/reject
-- Tự động ban user khi bị report 5 lần được chấp nhận
-
-#### 🤖 AI Features
-
-1. **Phát hiện Toxic Content**
-
-   - Spam detection
-   - Hate speech detection
-   - Harassment detection
-   - Sử dụng PhoBERT fine-tuned trên ViTHSD dataset
-
-2. **Phân tích Cảm xúc**
-   - Detect 8 emotions: joy, sadness, anger, fear, surprise, neutral, love, disgust
-   - Gắn màu nền cho comment dựa trên emotion
-   - Hiển thị gợi ý nếu detect anger
-
-## 🏗️ Kiến Trúc
-
-### Technology Stack
-
-**Backend:**
-
-- Node.js + Express.js
+- Node.js + Express
 - MongoDB + Mongoose
 - JWT Authentication
-- Cloudinary (image/video storage)
-- Google OAuth
+- **Google OAuth 2.0** (authentication only)
+- Cloudinary (upload ảnh/video)
 
-**Frontend:**
+### Frontend
 
-- React 18
-- Vite
+- React 18 + Vite
 - TailwindCSS + DaisyUI
-- React Router
-- React Query
 - Zustand (state management)
+- React Query (data fetching)
+- Axios
 
-**AI:**
+### AI/ML
 
-- Python + FastAPI
-- PyTorch
-- Transformers (PhoBERT)
-- TensorFlow
+- Python + TensorFlow
+- Toxic content detection
+- Emotion detection (6 emotions: joy, sadness, anger, fear, surprise, neutral)
 
-### Cấu Trúc Thư Mục
-
-```
-DoAnHTTM/
-├── web/
-│   ├── backend/
-│   │   ├── config/
-│   │   │   ├── database.js          # MongoDB connection
-│   │   │   └── cloudinary.js        # Cloudinary config
-│   │   ├── models/
-│   │   │   ├── User.js              # User schema
-│   │   │   ├── Category.js          # Category schema
-│   │   │   ├── Post.js              # Post schema
-│   │   │   ├── Comment.js           # Comment schema
-│   │   │   ├── Vote.js              # Vote schema
-│   │   │   └── Report.js            # Report schema
-│   │   ├── controllers/
-│   │   │   ├── authController.js
-│   │   │   ├── userController.js
-│   │   │   ├── categoryController.js
-│   │   │   ├── postController.js
-│   │   │   ├── commentController.js
-│   │   │   ├── voteController.js
-│   │   │   └── reportController.js
-│   │   ├── routes/
-│   │   │   ├── authRoutes.js
-│   │   │   ├── userRoutes.js
-│   │   │   ├── categoryRoutes.js
-│   │   │   ├── postRoutes.js
-│   │   │   ├── commentRoutes.js
-│   │   │   ├── voteRoutes.js
-│   │   │   └── reportRoutes.js
-│   │   ├── middleware/
-│   │   │   ├── auth.js              # Authentication & authorization
-│   │   │   ├── validate.js          # Input validation
-│   │   │   └── upload.js            # File upload
-│   │   ├── utils/
-│   │   ├── package.json
-│   │   ├── .env.example
-│   │   └── server.js                # Entry point
-│   │
-│   └── frontend/
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── common/          # Button, Input, Modal, etc.
-│       │   │   ├── layout/          # Header, Footer, Sidebar
-│       │   │   ├── post/            # PostCard, PostList, PostForm
-│       │   │   ├── comment/         # CommentItem, CommentList, CommentForm
-│       │   │   └── user/            # UserCard, UserProfile, UserBadge
-│       │   ├── pages/
-│       │   │   ├── Home.jsx
-│       │   │   ├── Login.jsx
-│       │   │   ├── Register.jsx
-│       │   │   ├── PostDetail.jsx
-│       │   │   ├── CreatePost.jsx
-│       │   │   ├── Profile.jsx
-│       │   │   ├── Category.jsx
-│       │   │   └── Admin/
-│       │   ├── services/
-│       │   │   ├── api.js           # Axios instance
-│       │   │   ├── authService.js
-│       │   │   ├── postService.js
-│       │   │   └── commentService.js
-│       │   ├── hooks/
-│       │   ├── context/
-│       │   ├── utils/
-│       │   ├── App.jsx
-│       │   └── main.jsx
-│       ├── package.json
-│       ├── vite.config.js
-│       └── tailwind.config.js
-│
-├── ai/
-│   ├── toxic_detection/
-│   │   ├── model.py                 # PhoBERT model cho toxic detection
-│   │   ├── train.py                 # Training script
-│   │   ├── predict.py               # Prediction script
-│   │   ├── dataset/                 # ViTHSD dataset
-│   │   └── checkpoints/             # Trained models
-│   │
-│   ├── emotions/
-│   │   ├── model.py                 # PhoBERT model cho emotion detection
-│   │   ├── train.py
-│   │   ├── predict.py
-│   │   ├── dataset/                 # Emotion dataset
-│   │   └── checkpoints/
-│   │
-│   ├── api.py                       # FastAPI service
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── .gitignore
-└── README.md
-```
-
-## 🗄️ Database Schema
-
-### User
-
-```javascript
-{
-  username, email, password, googleId,
-  avatar, bio, location, website,
-  stats: { postsCount, commentsCount, upvotesReceived, downvotesReceived, ... },
-  badge: "Newbie" | "Người từng trải" | "Chuyên gia" | "Xem chùa",
-  role: "user" | "moderator" | "admin",
-  restrictions: { canComment, canPost, bannedUntil, banReason }
-}
-```
-
-### Category
-
-```javascript
-{
-  name, slug, description,
-  icon, color, coverImage,
-  parentCategory,
-  stats: { postsCount, commentsCount, viewsCount },
-  settings: { isActive, requireApproval, allowImages, allowVideos },
-  moderators: [userId]
-}
-```
-
-### Post
-
-```javascript
-{
-  title, slug, content,
-  author, category,
-  media: { images: [], videos: [] },
-  tags: [],
-  stats: { upvotes, downvotes, commentsCount, viewsCount },
-  score,
-  status: "draft" | "published" | "pending_approval" | "removed" | "spam",
-  aiAnalysis: { isToxic, toxicScore, isSpam, spamScore }
-}
-```
-
-### Comment
-
-```javascript
-{
-  content, author, post,
-  parentComment, depth,
-  images: [],
-  stats: { upvotes, downvotes, repliesCount },
-  emotion: { label, confidence },
-  aiAnalysis: { isToxic, toxicScore },
-  isDeleted, deletedMessage
-}
-```
-
-### Vote
-
-```javascript
-{
-  user,
-  targetType: "Post" | "Comment",
-  targetId,
-  voteType: "upvote" | "downvote"
-}
-```
-
-### Report
-
-```javascript
-{
-  reporter,
-  targetType: "Post" | "Comment" | "User",
-  targetId,
-  reason: "spam" | "harassment" | "hate_speech" | ...,
-  description,
-  status: "pending" | "reviewing" | "accepted" | "rejected",
-  reviewedBy, action
-}
-```
-
-## 🚀 Cài Đặt và Chạy
+## 📦 Cài đặt
 
 ### Prerequisites
 
-- Node.js >= 18
-- MongoDB
-- Python >= 3.9
-- GPU (optional, cho training AI models)
+- Node.js >= 18.x
+- MongoDB >= 6.x
+- Python 3.8+ (cho AI)
 
 ### Backend Setup
 
 ```bash
 cd web/backend
 npm install
-cp .env.example .env
-# Điền thông tin vào .env
+
+# Tạo .env file (xem SETUP_GUIDE.md)
+# Cấu hình MongoDB, JWT, Cloudinary
+
 npm run dev
 ```
 
@@ -291,118 +67,132 @@ npm run dev
 ```bash
 cd web/frontend
 npm install
+
+# Tạo .env file
+echo "VITE_API_URL=http://localhost:5000/api" > .env
+
 npm run dev
 ```
 
-### AI Service Setup
+### AI Setup
 
 ```bash
 cd ai
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-# Train models hoặc download pre-trained models
-python api.py
+# Xem AI_TRAINING_GUIDE.md để hướng dẫn train models
 ```
 
-## 📝 API Endpoints
+## 📚 Documentation
 
-### Authentication
+- [SETUP_GUIDE.md](SETUP_GUIDE.md) - Hướng dẫn cài đặt chi tiết
+- [API_DOCUMENTATION.md](API_DOCUMENTATION.md) - API endpoints
+- [DATABASE_DESIGN.md](DATABASE_DESIGN.md) - Thiết kế database
+- [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) - Kiến trúc AI models
+- [PHAN_TICH_THIET_KE_HE_THONG.md](PHAN_TICH_THIET_KE_HE_THONG.md) - Phân tích hệ thống
 
-- `POST /api/auth/register` - Đăng ký
-- `POST /api/auth/login` - Đăng nhập
-- `GET /api/auth/google` - Google OAuth
-- `POST /api/auth/refresh` - Refresh token
+## 🚀 Features
 
-### Users
+### ✅ Đã hoàn thành
 
-- `GET /api/users/:id` - Lấy profile
-- `PUT /api/users/:id` - Update profile
-- `POST /api/users/:id/avatar` - Upload avatar
+- [x] Authentication (JWT, Google OAuth placeholder)
+- [x] User management với badge system
+- [x] Post CRUD với vote system
+- [x] Comment system với replies
+- [x] Category management
+- [x] Report system
+- [x] Direct messaging
+- [x] Notification system
+- [x] File upload (Cloudinary)
+- [x] Responsive UI với dark mode
+- [x] Backend API đầy đủ (10 routes, 10 controllers)
 
-### Categories
+### 🔄 Đang phát triển
 
-- `GET /api/categories` - Lấy tất cả categories
-- `POST /api/categories` - Tạo category (admin)
-- `PUT /api/categories/:id` - Update category (admin)
+- [ ] Post Detail Page hoàn chỉnh
+- [ ] Create/Edit Post với markdown editor
+- [ ] Comment component với emotion display
+- [ ] Profile page hoàn chỉnh
+- [ ] Search functionality
+- [ ] Real-time notifications (Socket.io)
 
-### Posts
+### 📋 Kế hoạch
 
-- `GET /api/posts` - Lấy danh sách posts (hot, new, top)
-- `GET /api/posts/:slug` - Lấy chi tiết post
-- `POST /api/posts` - Tạo post
-- `PUT /api/posts/:id` - Update post
-- `DELETE /api/posts/:id` - Xóa post
+- [ ] AI toxic detection integration
+- [ ] AI emotion detection integration
+- [ ] Admin dashboard
+- [ ] Analytics & statistics
+- [ ] Mobile responsive optimization
+- [ ] SEO optimization
 
-### Comments
+## 🤖 Tính năng AI
 
-- `GET /api/comments?postId=xxx` - Lấy comments của post
-- `POST /api/comments` - Tạo comment
-- `PUT /api/comments/:id` - Update comment
-- `DELETE /api/comments/:id` - Xóa comment
+### 1. Toxic Content Detection
 
-### Votes
+- Dataset: `ai/toxics/dataset/` (train.csv, dev.csv, test.csv)
+- Phát hiện: spam, hate speech, harassment, violence
+- Tự động warning user khi post/comment có nội dung toxic
 
-- `POST /api/votes/upvote` - Upvote
-- `POST /api/votes/downvote` - Downvote
+### 2. Emotion Detection
 
-### Reports
+- Dataset: `ai/emotions/dataset/` (train, valid, test)
+- 6 emotions: joy, sadness, anger, fear, surprise, neutral
+- Hiển thị emotion indicator trong comments
+- Gợi ý user khi có cảm xúc tiêu cực
 
-- `POST /api/reports` - Tạo report
-- `GET /api/reports` - Lấy danh sách reports (moderator)
-- `PUT /api/reports/:id/accept` - Accept report (moderator)
-- `PUT /api/reports/:id/reject` - Reject report (moderator)
+## 📁 Structure
 
-### AI
+```
+DoAnHTTM/
+├── ai/                    # AI models & datasets
+│   ├── emotions/          # Emotion detection
+│   └── toxics/            # Toxic detection
+├── web/
+│   ├── backend/           # Node.js backend ✅
+│   │   ├── controllers/   # 10 controllers
+│   │   ├── models/        # 9+ models
+│   │   ├── routes/        # 10 routes
+│   │   └── middleware/    # Auth, validation
+│   └── frontend/          # React frontend ✅
+│       └── src/
+│           ├── components/ # Layout, Navbar, Sidebar
+│           ├── pages/     # All pages
+│           ├── services/  # 10 API services
+│           └── store/     # Zustand stores
+└── *.md                   # Documentation
+```
 
-- `POST /api/ai/toxic` - Detect toxic content
-- `POST /api/ai/emotion` - Detect emotion
-- `POST /api/ai/analyze` - Phân tích toàn diện
+## 🎓 Đồ án môn học
 
-## 🎯 Các Quy Tắc Nghiệp Vụ
+**Môn:** Hệ thống thông minh  
+**Mục tiêu:** Xây dựng forum với tích hợp AI để:
 
-1. **Restrictions cho User mới:**
+- Tự động phát hiện và xử lý nội dung độc hại
+- Phân tích cảm xúc người dùng
+- Cải thiện trải nghiệm và an toàn cộng đồng
 
-   - Phải đăng ký đủ 1 tiếng mới được đăng bài
-   - Phải comment ít nhất 3 lần mới được đăng bài
+## 🚦 Quick Start
 
-2. **Badge/Biệt hiệu:**
+```bash
+# 1. Clone repo
+git clone <repo-url>
+cd DoAnHTTM
 
-   - **Newbie**: < 10 posts, < 50 comments
-   - **Người từng trải**: 10-50 posts, 50-200 comments
-   - **Chuyên gia**: > 50 posts hoặc > 200 comments hoặc > 500 upvotes
-   - **Xem chùa**: < 5 posts, < 10 comments
+# 2. Backend
+cd web/backend
+npm install
+# Tạo .env với MongoDB, JWT, Cloudinary
+npm run dev  # http://localhost:5000
 
-3. **Moderation:**
+# 3. Frontend (terminal mới)
+cd web/frontend
+npm install
+# Tạo .env với VITE_API_URL
+npm run dev  # http://localhost:3000
+```
 
-   - Bị report 5 lần (accepted) → bị cấm comment 1 ngày
-   - AI detect toxic với confidence > 0.8 → auto pending approval
+## 📝 License
 
-4. **Score Calculation:**
-   - Hot score: `net_votes / (age_hours + 2)^1.5`
-   - Controversial: `min(upvotes, downvotes) * total_votes`
+MIT License - Đồ án môn học
 
-## 📊 AI Models
+---
 
-### Toxic Detection
-
-- Base: PhoBERT (vinai/phobert-base)
-- Dataset: ViTHSD (Vietnamese Toxic & Hate Speech Detection)
-- Classes: clean, spam, hate_speech, harassment
-- Accuracy: ~85-90%
-
-### Emotion Detection
-
-- Base: PhoBERT
-- Dataset: Custom Vietnamese emotion dataset
-- Classes: joy, sadness, anger, fear, surprise, neutral, love, disgust
-- Accuracy: ~80-85%
-
-## 📄 License
-
-MIT
-
-## 👥 Contributors
-
-[Your Name]
+**Note:** Xem [SETUP_GUIDE.md](SETUP_GUIDE.md) để hướng dẫn chi tiết về cài đặt và phát triển tiếp.

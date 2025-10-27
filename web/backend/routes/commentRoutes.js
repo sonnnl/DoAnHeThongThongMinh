@@ -9,56 +9,41 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  authenticate,
-  canComment,
-  optionalAuth,
-} = require("../middleware/auth");
-const {
-  validateCreateComment,
-  validateMongoId,
-  validatePagination,
-} = require("../middleware/validate");
-
-// @route   GET /api/comments
-// @desc    Lấy comments của post
-// @access  Public
-router.get("/", validatePagination, optionalAuth, (req, res) => {
-  res.json({ message: "Get comments - TODO" });
-});
-
-// @route   GET /api/comments/:id
-// @desc    Lấy chi tiết comment
-// @access  Public
-router.get("/:id", validateMongoId("id"), optionalAuth, (req, res) => {
-  res.json({ message: "Get comment - TODO" });
-});
+const { authenticate, optionalAuth } = require("../middleware/auth");
+const commentController = require("../controllers/commentController");
 
 // @route   POST /api/comments
 // @desc    Tạo comment mới
-// @access  Private (requires canComment)
-router.post(
-  "/",
-  authenticate,
-  canComment,
-  validateCreateComment,
-  (req, res) => {
-    res.json({ message: "Create comment - TODO" });
-  }
+// @access  Private
+router.post("/", authenticate, commentController.createComment);
+
+// @route   GET /api/comments/post/:postId
+// @desc    Lấy comments của bài viết
+// @access  Public
+router.get("/post/:postId", optionalAuth, commentController.getCommentsByPost);
+
+// @route   GET /api/comments/:commentId
+// @desc    Lấy chi tiết comment
+// @access  Public
+router.get("/:commentId", optionalAuth, commentController.getComment);
+
+// @route   GET /api/comments/:commentId/replies
+// @desc    Lấy replies của comment
+// @access  Public
+router.get(
+  "/:commentId/replies",
+  optionalAuth,
+  commentController.getCommentReplies
 );
 
-// @route   PUT /api/comments/:id
-// @desc    Update comment
+// @route   PUT /api/comments/:commentId
+// @desc    Cập nhật comment
 // @access  Private (author only)
-router.put("/:id", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Update comment - TODO" });
-});
+router.put("/:commentId", authenticate, commentController.updateComment);
 
-// @route   DELETE /api/comments/:id
+// @route   DELETE /api/comments/:commentId
 // @desc    Xóa comment
 // @access  Private (author only)
-router.delete("/:id", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Delete comment - TODO" });
-});
+router.delete("/:commentId", authenticate, commentController.deleteComment);
 
 module.exports = router;

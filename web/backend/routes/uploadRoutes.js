@@ -1,36 +1,51 @@
 /**
  * FILE: web/backend/routes/uploadRoutes.js
- * MỤC ĐÍCH: Routes cho file uploads
+ * MỤC ĐÍCH: Routes cho upload files
  * LIÊN QUAN:
  *   - web/backend/controllers/uploadController.js
+ *   - web/backend/middleware/auth.js
  *   - web/backend/config/cloudinary.js
- *   - web/backend/middleware/upload.js
  */
 
 const express = require("express");
 const router = express.Router();
 
 const { authenticate } = require("../middleware/auth");
+const uploadController = require("../controllers/uploadController");
 
-// @route   POST /api/upload/image
-// @desc    Upload image
+// @route   POST /api/upload/single
+// @desc    Upload single file (image/video)
 // @access  Private
-router.post("/image", authenticate, (req, res) => {
-  res.json({ message: "Upload image - TODO" });
-});
+router.post(
+  "/single",
+  authenticate,
+  uploadController.uploadSingle,
+  uploadController.uploadFile
+);
 
-// @route   POST /api/upload/video
-// @desc    Upload video (max 25MB)
+// @route   POST /api/upload/multiple
+// @desc    Upload multiple files
 // @access  Private
-router.post("/video", authenticate, (req, res) => {
-  res.json({ message: "Upload video - TODO" });
-});
+router.post(
+  "/multiple",
+  authenticate,
+  uploadController.uploadMultiple,
+  uploadController.uploadFiles
+);
 
-// @route   DELETE /api/upload/:publicId
-// @desc    Delete uploaded file
+// @route   POST /api/upload/avatar
+// @desc    Upload avatar
 // @access  Private
-router.delete("/:publicId", authenticate, (req, res) => {
-  res.json({ message: "Delete file - TODO" });
-});
+router.post(
+  "/avatar",
+  authenticate,
+  uploadController.uploadSingle,
+  uploadController.uploadAvatar
+);
+
+// @route   DELETE /api/upload
+// @desc    Xóa file từ Cloudinary
+// @access  Private
+router.delete("/", authenticate, uploadController.deleteFile);
 
 module.exports = router;

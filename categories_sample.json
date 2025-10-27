@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Công nghệ",
+    "slug": "cong-nghe",
+    "description": "Thảo luận về công nghệ, lập trình, AI",
+    "color": "#3b82f6",
+    "icon": "💻",
+    "stats": {
+      "postsCount": 0,
+      "followersCount": 0
+    },
+    "isActive": true,
+    "createdAt": { "$date": "2024-10-27T00:00:00.000Z" },
+    "updatedAt": { "$date": "2024-10-27T00:00:00.000Z" }
+  },
+  {
+    "name": "Giải trí",
+    "slug": "giai-tri",
+    "description": "Phim ảnh, âm nhạc, game",
+    "color": "#ec4899",
+    "icon": "🎬",
+    "stats": {
+      "postsCount": 0,
+      "followersCount": 0
+    },
+    "isActive": true,
+    "createdAt": { "$date": "2024-10-27T00:00:00.000Z" },
+    "updatedAt": { "$date": "2024-10-27T00:00:00.000Z" }
+  },
+  {
+    "name": "Thể thao",
+    "slug": "the-thao",
+    "description": "Tin tức và thảo luận về thể thao",
+    "color": "#10b981",
+    "icon": "⚽",
+    "stats": {
+      "postsCount": 0,
+      "followersCount": 0
+    },
+    "isActive": true,
+    "createdAt": { "$date": "2024-10-27T00:00:00.000Z" },
+    "updatedAt": { "$date": "2024-10-27T00:00:00.000Z" }
+  },
+  {
+    "name": "Ẩm thực",
+    "slug": "am-thuc",
+    "description": "Công thức nấu ăn, review món ăn",
+    "color": "#f59e0b",
+    "icon": "🍜",
+    "stats": {
+      "postsCount": 0,
+      "followersCount": 0
+    },
+    "isActive": true,
+    "createdAt": { "$date": "2024-10-27T00:00:00.000Z" },
+    "updatedAt": { "$date": "2024-10-27T00:00:00.000Z" }
+  },
+  {
+    "name": "Hỏi đáp",
+    "slug": "hoi-dap",
+    "description": "Đặt câu hỏi và nhận câu trả lời",
+    "color": "#6366f1",
+    "icon": "❓",
+    "stats": {
+      "postsCount": 0,
+      "followersCount": 0
+    },
+    "isActive": true,
+    "createdAt": { "$date": "2024-10-27T00:00:00.000Z" },
+    "updatedAt": { "$date": "2024-10-27T00:00:00.000Z" }
+  }
+]

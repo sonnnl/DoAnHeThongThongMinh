@@ -10,8 +10,8 @@
 const express = require("express");
 const router = express.Router();
 
-// Import controllers (TODO: Create these files)
-// const authController = require('../controllers/authController');
+// Import controllers
+const authController = require("../controllers/authController");
 
 // Import middleware
 const { validateRegister, validateLogin } = require("../middleware/validate");
@@ -22,57 +22,46 @@ const { authenticate } = require("../middleware/auth");
 // @route   POST /api/auth/register
 // @desc    Đăng ký user mới
 // @access  Public
-router.post("/register", validateRegister, (req, res) => {
-  // TODO: Implement authController.register
-  res.json({ message: "Register endpoint - TODO" });
-});
+router.post("/register", validateRegister, authController.register);
 
 // @route   POST /api/auth/login
 // @desc    Đăng nhập
 // @access  Public
-router.post("/login", validateLogin, (req, res) => {
-  // TODO: Implement authController.login
-  res.json({ message: "Login endpoint - TODO" });
-});
-
-// @route   GET /api/auth/google
-// @desc    Google OAuth login
-// @access  Public
-router.get("/google", (req, res) => {
-  // TODO: Implement Google OAuth
-  res.json({ message: "Google OAuth - TODO" });
-});
-
-// @route   GET /api/auth/google/callback
-// @desc    Google OAuth callback
-// @access  Public
-router.get("/google/callback", (req, res) => {
-  // TODO: Implement Google OAuth callback
-  res.json({ message: "Google OAuth callback - TODO" });
-});
-
-// @route   POST /api/auth/refresh
-// @desc    Refresh access token
-// @access  Public
-router.post("/refresh", (req, res) => {
-  // TODO: Implement authController.refreshToken
-  res.json({ message: "Refresh token - TODO" });
-});
-
-// @route   POST /api/auth/logout
-// @desc    Logout
-// @access  Private
-router.post("/logout", authenticate, (req, res) => {
-  // TODO: Implement authController.logout
-  res.json({ message: "Logout - TODO" });
-});
+router.post("/login", validateLogin, authController.login);
 
 // @route   GET /api/auth/me
 // @desc    Lấy thông tin user hiện tại
 // @access  Private
-router.get("/me", authenticate, (req, res) => {
-  // TODO: Implement authController.getMe
-  res.json({ user: req.user });
-});
+router.get("/me", authenticate, authController.getMe);
+
+// @route   POST /api/auth/google
+// @desc    Google OAuth login
+// @access  Public
+router.post("/google", authController.googleAuth);
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh access token
+// @access  Public
+router.post("/refresh", authController.refreshToken);
+
+// @route   POST /api/auth/logout
+// @desc    Logout
+// @access  Private
+router.post("/logout", authenticate, authController.logout);
+
+// @route   GET /api/auth/verify/:token
+// @desc    Verify email
+// @access  Public
+router.get("/verify/:token", authController.verifyEmail);
+
+// @route   POST /api/auth/forgot-password
+// @desc    Forgot password
+// @access  Public
+router.post("/forgot-password", authController.forgotPassword);
+
+// @route   POST /api/auth/reset-password/:token
+// @desc    Reset password
+// @access  Public
+router.post("/reset-password/:token", authController.resetPassword);
 
 module.exports = router;

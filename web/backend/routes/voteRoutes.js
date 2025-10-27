@@ -1,35 +1,39 @@
 /**
  * FILE: web/backend/routes/voteRoutes.js
- * MỤC ĐÍCH: Routes cho voting system
+ * MỤC ĐÍCH: Routes cho voting (upvote/downvote)
  * LIÊN QUAN:
  *   - web/backend/controllers/voteController.js
- *   - web/backend/models/Vote.js
+ *   - web/backend/middleware/auth.js
  */
 
 const express = require("express");
 const router = express.Router();
 
 const { authenticate } = require("../middleware/auth");
+const voteController = require("../controllers/voteController");
 
-// @route   POST /api/votes/upvote
-// @desc    Upvote post hoặc comment
+// @route   POST /api/votes
+// @desc    Vote (upvote/downvote) cho Post hoặc Comment
 // @access  Private
-router.post("/upvote", authenticate, (req, res) => {
-  res.json({ message: "Upvote - TODO" });
-});
+router.post("/", authenticate, voteController.vote);
 
-// @route   POST /api/votes/downvote
-// @desc    Downvote post hoặc comment
+// @route   GET /api/votes/:contentType/:contentId
+// @desc    Lấy vote status của user
 // @access  Private
-router.post("/downvote", authenticate, (req, res) => {
-  res.json({ message: "Downvote - TODO" });
-});
+router.get(
+  "/:contentType/:contentId",
+  authenticate,
+  voteController.getVoteStatus
+);
 
-// @route   GET /api/votes/my-votes
-// @desc    Lấy danh sách votes của user
-// @access  Private
-router.get("/my-votes", authenticate, (req, res) => {
-  res.json({ message: "Get my votes - TODO" });
-});
+// @route   GET /api/votes/:contentType/:contentId/upvotes
+// @desc    Lấy danh sách users đã upvote
+// @access  Public
+router.get("/:contentType/:contentId/upvotes", voteController.getUpvoters);
+
+// @route   GET /api/votes/:contentType/:contentId/downvotes
+// @desc    Lấy danh sách users đã downvote
+// @access  Public
+router.get("/:contentType/:contentId/downvotes", voteController.getDownvoters);
 
 module.exports = router;

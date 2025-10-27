@@ -1,60 +1,57 @@
 /**
  * FILE: web/backend/routes/notificationRoutes.js
- * MỤC ĐÍCH: Routes cho notification system
+ * MỤC ĐÍCH: Routes cho notifications
  * LIÊN QUAN:
  *   - web/backend/controllers/notificationController.js
- *   - web/backend/models/Notification.js
+ *   - web/backend/middleware/auth.js
  */
 
 const express = require("express");
 const router = express.Router();
 
 const { authenticate } = require("../middleware/auth");
-const {
-  validatePagination,
-  validateMongoId,
-} = require("../middleware/validate");
-
-// @route   GET /api/notifications
-// @desc    Lấy danh sách notifications của user
-// @access  Private
-router.get("/", authenticate, validatePagination, (req, res) => {
-  res.json({ message: "Get notifications - TODO" });
-});
+const notificationController = require("../controllers/notificationController");
 
 // @route   GET /api/notifications/unread-count
-// @desc    Lấy số notifications chưa đọc
+// @desc    Lấy số lượng unread notifications
 // @access  Private
-router.get("/unread-count", authenticate, (req, res) => {
-  res.json({ message: "Get unread count - TODO" });
-});
+router.get(
+  "/unread-count",
+  authenticate,
+  notificationController.getUnreadCount
+);
 
-// @route   PUT /api/notifications/:id/read
-// @desc    Đánh dấu notification đã đọc
+// @route   PUT /api/notifications/read-all
+// @desc    Đánh dấu tất cả notifications đã đọc
 // @access  Private
-router.put("/:id/read", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Mark as read - TODO" });
-});
+router.put("/read-all", authenticate, notificationController.markAllAsRead);
 
-// @route   PUT /api/notifications/mark-all-read
-// @desc    Đánh dấu tất cả đã đọc
+// @route   GET /api/notifications
+// @desc    Lấy danh sách notifications
 // @access  Private
-router.put("/mark-all-read", authenticate, (req, res) => {
-  res.json({ message: "Mark all as read - TODO" });
-});
-
-// @route   DELETE /api/notifications/:id
-// @desc    Xóa notification
-// @access  Private
-router.delete("/:id", authenticate, validateMongoId("id"), (req, res) => {
-  res.json({ message: "Delete notification - TODO" });
-});
+router.get("/", authenticate, notificationController.getNotifications);
 
 // @route   DELETE /api/notifications
 // @desc    Xóa tất cả notifications
 // @access  Private
-router.delete("/", authenticate, (req, res) => {
-  res.json({ message: "Delete all notifications - TODO" });
-});
+router.delete("/", authenticate, notificationController.deleteAllNotifications);
+
+// @route   PUT /api/notifications/:notificationId/read
+// @desc    Đánh dấu notification đã đọc
+// @access  Private
+router.put(
+  "/:notificationId/read",
+  authenticate,
+  notificationController.markAsRead
+);
+
+// @route   DELETE /api/notifications/:notificationId
+// @desc    Xóa notification
+// @access  Private
+router.delete(
+  "/:notificationId",
+  authenticate,
+  notificationController.deleteNotification
+);
 
 module.exports = router;
