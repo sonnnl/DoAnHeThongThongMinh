@@ -28,7 +28,7 @@ const CommentList = ({ postId }) => {
 
   // Create comment mutation
   const createCommentMutation = useMutation(
-    (content) => commentsAPI.createComment({ post: postId, content }),
+    (content) => commentsAPI.createComment({ postId, content }),
     {
       onSuccess: () => {
         toast.success("Bình luận thành công!");

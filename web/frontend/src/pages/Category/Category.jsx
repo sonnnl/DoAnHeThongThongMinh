@@ -30,15 +30,15 @@ const Category = () => {
   // Fetch posts in category
   const { data: postsData, isLoading: postsLoading } = useQuery(
     ["categoryPosts", slug, sort, page],
-    () => postsAPI.getPosts({ category: categoryData?.data._id, sort, page }),
+    () => postsAPI.getPosts({ category: categoryData?._id, sort, page }),
     {
-      enabled: !!categoryData?.data._id,
+      enabled: !!categoryData?._id,
     }
   );
 
   // Follow category mutation
   const followMutation = useMutation(
-    () => categoriesAPI.followCategory(categoryData?.data._id),
+    () => categoriesAPI.followCategory(categoryData?._id),
     {
       onSuccess: () => {
         toast.success("Đã follow danh mục!");
@@ -52,7 +52,7 @@ const Category = () => {
 
   // Unfollow category mutation
   const unfollowMutation = useMutation(
-    () => categoriesAPI.unfollowCategory(categoryData?.data._id),
+    () => categoriesAPI.unfollowCategory(categoryData?._id),
     {
       onSuccess: () => {
         toast.success("Đã unfollow danh mục!");
@@ -78,7 +78,7 @@ const Category = () => {
 
   if (categoryLoading) return <Loading />;
 
-  const category = categoryData?.data;
+  const category = categoryData;
   const posts = postsData?.data?.posts || [];
 
   return (

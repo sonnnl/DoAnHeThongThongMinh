@@ -193,6 +193,18 @@ const postSchema = new mongoose.Schema(
     removedReason: String,
     removedAt: Date,
 
+    // Soft Delete (standard pattern)
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true, // Index để query nhanh
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    deletedAt: Date,
+
     // Tracking
     lastActivityAt: {
       type: Date,

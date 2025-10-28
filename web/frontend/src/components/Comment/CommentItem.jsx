@@ -28,6 +28,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [voteError, setVoteError] = useState("");
   const [editContent, setEditContent] = useState(comment.content);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState("");
@@ -37,13 +38,14 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
 
   // Vote mutation
   const voteMutation = useMutation(
-    (voteType) => votesAPI.vote("comment", comment._id, voteType),
+    (voteType) => votesAPI.vote("Comment", comment._id, voteType),
     {
       onSuccess: () => {
+        setVoteError("");
         queryClient.invalidateQueries(["comments", postId]);
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || "Vote thất bại");
+        setVoteError(error.response?.data?.message || "Vote thất bại");
       },
     }
   );
@@ -81,7 +83,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const replyMutation = useMutation(
     (content) =>
       commentsAPI.createComment({
-        post: postId,
+        postId,
         content,
         parentComment: comment._id,
       }),
@@ -152,12 +154,18 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
       >
         <div className="flex gap-3">
           {/* Vote buttons */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="relative flex flex-col items-center gap-1">
             <button
               className={`btn btn-ghost btn-xs btn-circle ${
                 comment.userVote === "upvote" ? "text-success" : ""
               }`}
-              onClick={() => handleVote("upvote")}
+              onClick={() => !isAuthor && handleVote("upvote")}
+              disabled={isAuthor}
+              title={
+                isAuthor
+                  ? "Bạn không thể vote comment của chính mình"
+                  : "Upvote"
+              }
             >
               <FiArrowUp />
             </button>
@@ -168,10 +176,21 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               className={`btn btn-ghost btn-xs btn-circle ${
                 comment.userVote === "downvote" ? "text-error" : ""
               }`}
-              onClick={() => handleVote("downvote")}
+              onClick={() => !isAuthor && handleVote("downvote")}
+              disabled={isAuthor}
+              title={
+                isAuthor
+                  ? "Bạn không thể vote comment của chính mình"
+                  : "Downvote"
+              }
             >
               <FiArrowDown />
             </button>
+            {voteError && !isAuthor && (
+              <span className="absolute top-full mt-1 text-[10px] text-error text-center max-w-[140px] px-2 py-1 bg-base-100/90 backdrop-blur rounded shadow pointer-events-none">
+                {voteError}
+              </span>
+            )}
           </div>
 
           {/* Content */}

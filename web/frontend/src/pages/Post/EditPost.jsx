@@ -18,11 +18,12 @@ const EditPost = () => {
     content: "",
     tags: [],
   });
+  const [tagInput, setTagInput] = useState("");
 
   // Fetch post
   const { data: postData, isLoading } = useQuery(
     ["post", postId],
-    () => postsAPI.getPost(postId),
+    () => postsAPI.getPostById(postId),
     {
       onSuccess: (data) => {
         setFormData({
@@ -68,6 +69,21 @@ const EditPost = () => {
     updatePostMutation.mutate(formData);
   };
 
+  const handleAddTag = () => {
+    const value = tagInput.trim();
+    if (!value) return;
+    if (formData.tags.includes(value)) return;
+    setFormData({ ...formData, tags: [...formData.tags, value] });
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter((t) => t !== tagToRemove),
+    });
+  };
+
   if (isLoading) return <Loading />;
 
   return (
@@ -89,6 +105,52 @@ const EditPost = () => {
             onChange={handleChange}
             required
           />
+        </div>
+
+        {/* Tags */}
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text font-semibold">Tags</span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              placeholder="Nhập tag và nhấn Enter"
+              className="input input-bordered flex-1"
+            />
+            <button
+              type="button"
+              onClick={handleAddTag}
+              className="btn btn-outline"
+            >
+              Thêm
+            </button>
+          </div>
+          {formData.tags?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {formData.tags.map((tag) => (
+                <div key={tag} className="badge badge-lg gap-2">
+                  #{tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="btn btn-ghost btn-xs"
+                    aria-label={`Xóa tag ${tag}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Content */}

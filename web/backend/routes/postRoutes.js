@@ -42,6 +42,11 @@ router.post("/", authenticate, postController.createPost);
 // @access  Public (with optional auth for vote status)
 router.get("/:slug", optionalAuth, postController.getPost);
 
+// @route   GET /api/posts/id/:postId
+// @desc    Lấy chi tiết post theo postId
+// @access  Public (with optional auth for vote status)
+router.get("/id/:postId", optionalAuth, postController.getPostById);
+
 // @route   PUT /api/posts/:postId
 // @desc    Update post
 // @access  Private (author only)

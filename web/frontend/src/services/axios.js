@@ -75,8 +75,11 @@ axiosInstance.interceptors.response.use(
     const message =
       error.response?.data?.message || error.message || "Đã có lỗi xảy ra";
 
+    // Cho phép tắt toast ở từng request
+    const suppress = originalRequest?.suppressErrorToast === true;
+
     // Show toast for errors (except 401 which redirects)
-    if (error.response?.status !== 401) {
+    if (error.response?.status !== 401 && !suppress) {
       toast.error(message);
     }
 

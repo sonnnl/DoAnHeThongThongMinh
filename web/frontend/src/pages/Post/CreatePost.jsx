@@ -21,6 +21,7 @@ const CreatePost = () => {
   });
   const [tagInput, setTagInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // Fetch categories
   const { data: categoriesData } = useQuery("categories", () =>
@@ -31,22 +32,55 @@ const CreatePost = () => {
   const createPostMutation = useMutation(postsAPI.createPost, {
     onSuccess: (data) => {
       console.log("✅ Post created:", data);
-      console.log("📝 Slug:", data.slug);
+      console.log("📝 Slug:", data?.data?.slug);
       toast.success("Tạo bài viết thành công!");
-      // data đã được unwrap 2 lần
-      navigate(`/post/${data.slug}`);
+      navigate(`/post/${data?.data?.slug}`);
     },
     onError: (error) => {
       console.error("❌ Create post error:", error);
-      toast.error(error.response?.data?.message || "Tạo bài viết thất bại");
+      const errorMessage =
+        error.response?.data?.message || "Tạo bài viết thất bại";
+
+      // Parse validation errors từ backend
+      if (errorMessage.includes("validation failed")) {
+        const newErrors = {};
+        if (errorMessage.includes("title")) {
+          newErrors.title = "Tiêu đề phải từ 10-300 ký tự";
+        }
+        if (
+          errorMessage.includes("content") &&
+          errorMessage.includes("shorter")
+        ) {
+          newErrors.content = "Nội dung phải có ít nhất 20 ký tự";
+        }
+        if (
+          errorMessage.includes("content") &&
+          errorMessage.includes("longer")
+        ) {
+          newErrors.content = "Nội dung không được vượt quá 50,000 ký tự";
+        }
+        setErrors(newErrors);
+      } else {
+        // Lỗi khác (server, network, etc.)
+        toast.error(errorMessage);
+      }
     },
   });
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    // Clear error khi user bắt đầu nhập
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: null,
+      });
+    }
   };
 
   const handleAddTag = () => {
@@ -78,9 +112,9 @@ const CreatePost = () => {
       const results = await Promise.all(uploadPromises);
 
       const newMediaFiles = results.map((result) => ({
-        url: result.data.url,
-        publicId: result.data.publicId,
-        type: result.data.resourceType,
+        url: result.url,
+        publicId: result.publicId,
+        type: result.resourceType,
       }));
 
       setFormData({
@@ -104,15 +138,45 @@ const CreatePost = () => {
     });
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validate category
+    if (!formData.category) {
+      newErrors.category = "Vui lòng chọn danh mục";
+    }
+
+    // Validate title
+    if (!formData.title.trim()) {
+      newErrors.title = "Vui lòng nhập tiêu đề";
+    } else if (formData.title.trim().length < 10) {
+      newErrors.title = "Tiêu đề phải có ít nhất 10 ký tự";
+    } else if (formData.title.trim().length > 300) {
+      newErrors.title = "Tiêu đề không được vượt quá 300 ký tự";
+    }
+
+    // Validate content
+    if (!formData.content.trim()) {
+      newErrors.content = "Vui lòng nhập nội dung";
+    } else if (formData.content.trim().length < 20) {
+      newErrors.content = "Nội dung phải có ít nhất 20 ký tự";
+    } else if (formData.content.trim().length > 50000) {
+      newErrors.content = "Nội dung không được vượt quá 50,000 ký tự";
+    }
+
+    return newErrors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !formData.title.trim() ||
-      !formData.content.trim() ||
-      !formData.category
-    ) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
+    // Clear previous errors
+    setErrors({});
+
+    // Validate form
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
@@ -131,51 +195,124 @@ const CreatePost = () => {
           </label>
           <select
             name="category"
-            className="select select-bordered w-full"
+            className={`select select-bordered w-full ${
+              errors.category ? "select-error" : ""
+            }`}
             value={formData.category}
             onChange={handleChange}
             required
           >
             <option value="">-- Chọn danh mục --</option>
-            {categoriesData?.map((category) => (
+            {(Array.isArray(categoriesData)
+              ? categoriesData
+              : categoriesData?.data || []
+            ).map((category) => (
               <option key={category._id} value={category._id}>
                 {category.name}
               </option>
             ))}
           </select>
+          {errors.category && (
+            <label className="label">
+              <span className="label-text-alt text-error flex items-center gap-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {errors.category}
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Title */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">Tiêu đề *</span>
+            <span className="label-text-alt text-base-content/50">
+              {formData.title.length}/300
+            </span>
           </label>
           <input
             type="text"
             name="title"
             placeholder="Nhập tiêu đề bài viết..."
-            className="input input-bordered w-full"
+            className={`input input-bordered w-full ${
+              errors.title ? "input-error" : ""
+            }`}
             value={formData.title}
             onChange={handleChange}
             required
           />
+          {errors.title && (
+            <label className="label">
+              <span className="label-text-alt text-error flex items-center gap-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {errors.title}
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Content */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">Nội dung *</span>
+            <span className="label-text-alt text-base-content/50">
+              {formData.content.length}/50,000
+            </span>
           </label>
           <textarea
             name="content"
             placeholder="Nhập nội dung bài viết..."
-            className="textarea textarea-bordered h-64"
+            className={`textarea textarea-bordered h-64 ${
+              errors.content ? "textarea-error" : ""
+            }`}
             value={formData.content}
             onChange={handleChange}
             required
           ></textarea>
           <label className="label">
-            <span className="label-text-alt">Hỗ trợ Markdown</span>
+            <span className="label-text-alt">
+              {errors.content ? (
+                <span className="text-error flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {errors.content}
+                </span>
+              ) : (
+                "Hỗ trợ Markdown"
+              )}
+            </span>
           </label>
         </div>
 

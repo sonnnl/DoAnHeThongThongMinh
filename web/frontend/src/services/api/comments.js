@@ -9,13 +9,13 @@ const commentsAPI = {
   // Get comments by post
   getCommentsByPost: async (postId, params) => {
     const response = await axios.get(`/comments/post/${postId}`, { params });
-    return response.data;
+    return response;
   },
 
   // Get comment
   getComment: async (commentId) => {
     const response = await axios.get(`/comments/${commentId}`);
-    return response.data;
+    return response;
   },
 
   // Get replies
@@ -23,25 +23,30 @@ const commentsAPI = {
     const response = await axios.get(`/comments/${commentId}/replies`, {
       params,
     });
-    return response.data;
+    return response;
   },
 
   // Create comment
   createComment: async (commentData) => {
-    const response = await axios.post("/comments", commentData);
-    return response.data;
+    const payload = {
+      ...commentData,
+      postId: commentData.postId || commentData.post, // Chuẩn hóa field
+    };
+    delete payload.post;
+    const response = await axios.post("/comments", payload);
+    return response;
   },
 
   // Update comment
   updateComment: async (commentId, commentData) => {
     const response = await axios.put(`/comments/${commentId}`, commentData);
-    return response.data;
+    return response;
   },
 
   // Delete comment
   deleteComment: async (commentId) => {
     const response = await axios.delete(`/comments/${commentId}`);
-    return response.data;
+    return response;
   },
 };
 

@@ -22,7 +22,17 @@ const User = require("../models/User");
 // @access  Private
 exports.vote = async (req, res, next) => {
   try {
-    const { contentType, contentId, voteType } = req.body;
+    const {
+      contentType: bodyContentType,
+      contentId: bodyContentId,
+      targetType: bodyTargetType,
+      targetId: bodyTargetId,
+      voteType,
+    } = req.body;
+
+    // Normalize input to contentType/contentId
+    const contentType = bodyContentType || bodyTargetType;
+    const contentId = bodyContentId || bodyTargetId;
 
     // Validate contentType
     if (!["Post", "Comment"].includes(contentType)) {
@@ -64,8 +74,8 @@ exports.vote = async (req, res, next) => {
     // Kiểm tra vote hiện tại
     let existingVote = await Vote.findOne({
       user: req.user.id,
-      contentType,
-      contentId,
+      targetType: contentType,
+      targetId: contentId,
     });
 
     const user = await User.findById(req.user.id);
@@ -119,8 +129,8 @@ exports.vote = async (req, res, next) => {
       // Tạo vote mới
       await Vote.create({
         user: req.user.id,
-        contentType,
-        contentId,
+        targetType: contentType,
+        targetId: contentId,
         voteType,
       });
 

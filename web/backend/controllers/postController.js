@@ -69,6 +69,15 @@ exports.createPost = async (req, res, next) => {
     // const isSpam = await checkSpam(content);
     // const isToxic = await checkToxic(content);
 
+    // Chuẩn hóa media vào đúng schema
+    const images = (mediaFiles || [])
+      .filter((m) => (m.type || m.resourceType) === "image")
+      .map((m) => ({ url: m.url, publicId: m.publicId }));
+
+    const videos = (mediaFiles || [])
+      .filter((m) => (m.type || m.resourceType) === "video")
+      .map((m) => ({ url: m.url, publicId: m.publicId }));
+
     // Tạo post
     const post = await Post.create({
       title,
@@ -76,7 +85,7 @@ exports.createPost = async (req, res, next) => {
       slug,
       author: req.user.id,
       category,
-      mediaFiles: mediaFiles || [],
+      media: { images, videos },
       tags: tags || [],
     });
 
@@ -199,7 +208,7 @@ exports.getPosts = async (req, res, next) => {
   }
 };
 
-// @desc    Lấy chi tiết bài viết
+// @desc    Lấy chi tiết bài viết theo slug
 // @route   GET /api/posts/:slug
 // @access  Public
 exports.getPost = async (req, res, next) => {
@@ -225,6 +234,54 @@ exports.getPost = async (req, res, next) => {
     await User.findByIdAndUpdate(post.author._id, {
       $inc: { "stats.viewsReceived": 1 },
     });
+
+    // Nếu user đang đăng nhập, lấy vote status và saved status
+    if (req.user) {
+      const vote = await Vote.findOne({
+        user: req.user.id,
+        contentType: "Post",
+        contentId: post._id,
+      });
+
+      const saved = await SavedPost.findOne({
+        user: req.user.id,
+        post: post._id,
+      });
+
+      post.userVote = vote ? vote.voteType : null;
+      post.isSaved = !!saved;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: post,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Lấy chi tiết bài viết theo postId
+// @route   GET /api/posts/id/:postId
+// @access  Public
+exports.getPostById = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findOne({ _id: postId, isDeleted: false })
+      .populate("author", "username avatar badge stats registeredAt")
+      .populate("category", "name slug color description")
+      .lean();
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài viết",
+      });
+    }
+
+    // Tăng view count
+    await Post.findByIdAndUpdate(post._id, { $inc: { "stats.views": 1 } });
 
     // Nếu user đang đăng nhập, lấy vote status và saved status
     if (req.user) {
@@ -290,7 +347,15 @@ exports.updatePost = async (req, res, next) => {
     if (title) post.title = title;
     if (content) post.content = content;
     if (tags) post.tags = tags;
-    if (mediaFiles) post.mediaFiles = mediaFiles;
+    if (mediaFiles) {
+      const images = (mediaFiles || [])
+        .filter((m) => (m.type || m.resourceType) === "image")
+        .map((m) => ({ url: m.url, publicId: m.publicId }));
+      const videos = (mediaFiles || [])
+        .filter((m) => (m.type || m.resourceType) === "video")
+        .map((m) => ({ url: m.url, publicId: m.publicId }));
+      post.media = { images, videos };
+    }
 
     post.isEdited = true;
     post.editedAt = Date.now();
@@ -341,6 +406,8 @@ exports.deletePost = async (req, res, next) => {
 
     // Soft delete
     post.isDeleted = true;
+    post.deletedBy = req.user.id;
+    post.deletedAt = new Date();
     await post.save();
 
     // Update user stats
@@ -543,7 +610,6 @@ exports.getTrendingPosts = async (req, res, next) => {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const posts = await Post.find({
-      isDeleted: false,
       createdAt: { $gte: oneWeekAgo },
     })
       .sort({ score: -1, "stats.views": -1 })

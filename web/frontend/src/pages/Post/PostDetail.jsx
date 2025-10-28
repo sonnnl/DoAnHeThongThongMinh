@@ -3,6 +3,7 @@
  * MỤC ĐÍCH: Trang chi tiết bài viết với comments
  */
 
+import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { postsAPI, votesAPI } from "../../services/api";
@@ -34,6 +35,7 @@ const PostDetail = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
+  const [voteError, setVoteError] = useState("");
 
   // Fetch post
   const { data, isLoading, error } = useQuery(["post", slug], () =>
@@ -42,13 +44,14 @@ const PostDetail = () => {
 
   // Vote mutation
   const voteMutation = useMutation(
-    (voteType) => votesAPI.vote("post", data?.data._id, voteType),
+    (voteType) => votesAPI.vote("Post", data?.data._id, voteType),
     {
       onSuccess: () => {
+        setVoteError("");
         queryClient.invalidateQueries(["post", slug]);
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || "Vote thất bại");
+        setVoteError(error.response?.data?.message || "Vote thất bại");
       },
     }
   );
@@ -105,7 +108,7 @@ const PostDetail = () => {
       toast.error("Vui lòng đăng nhập để lưu bài viết");
       return;
     }
-    if (post.isSaved) {
+    if (post?.isSaved) {
       unsaveMutation.mutate();
     } else {
       saveMutation.mutate();
@@ -144,7 +147,13 @@ const PostDetail = () => {
     );
 
   const post = data?.data;
-  const isAuthor = user?._id === post?.author._id;
+
+  // Additional check for post data
+  if (!post) {
+    return <div className="alert alert-error">Không tìm thấy bài viết</div>;
+  }
+
+  const isAuthor = user?._id === post?.author?._id;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -153,26 +162,45 @@ const PostDetail = () => {
         <div className="card-body">
           <div className="flex gap-4">
             {/* Vote section */}
-            <div className="flex flex-col items-center gap-2">
+            <div className="relative flex flex-col items-center gap-2">
               <button
                 className={`btn btn-circle ${
-                  post.userVote === "upvote" ? "btn-success" : "btn-ghost"
+                  post?.userVote === "upvote" ? "btn-success" : "btn-ghost"
                 }`}
-                onClick={() => handleVote("upvote")}
+                onClick={() => !isAuthor && handleVote("upvote")}
+                disabled={isAuthor}
+                title={
+                  isAuthor
+                    ? "Bạn không thể vote bài viết của chính mình"
+                    : "Upvote"
+                }
               >
                 <FiArrowUp className="text-xl" />
               </button>
               <span className="text-2xl font-bold">
-                {formatNumber(post.stats?.score || 0)}
+                {formatNumber(
+                  (post.stats?.upvotes || 0) - (post.stats?.downvotes || 0)
+                )}
               </span>
               <button
                 className={`btn btn-circle ${
-                  post.userVote === "downvote" ? "btn-error" : "btn-ghost"
+                  post?.userVote === "downvote" ? "btn-error" : "btn-ghost"
                 }`}
-                onClick={() => handleVote("downvote")}
+                onClick={() => !isAuthor && handleVote("downvote")}
+                disabled={isAuthor}
+                title={
+                  isAuthor
+                    ? "Bạn không thể vote bài viết của chính mình"
+                    : "Downvote"
+                }
               >
                 <FiArrowDown className="text-xl" />
               </button>
+              {voteError && !isAuthor && (
+                <span className="absolute top-full mt-1 text-xs text-error text-center max-w-[160px] px-2 py-1 bg-base-100/90 backdrop-blur rounded shadow pointer-events-none">
+                  {voteError}
+                </span>
+              )}
             </div>
 
             {/* Content */}
@@ -237,19 +265,27 @@ const PostDetail = () => {
               </div>
 
               {/* Media */}
-              {post.mediaFiles && post.mediaFiles.length > 0 && (
+              {(post.media?.images?.length > 0 ||
+                post.media?.videos?.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {post.mediaFiles.map((media, index) => (
-                    <div key={index} className="rounded-lg overflow-hidden">
-                      {media.type === "image" ? (
-                        <img
-                          src={media.url}
-                          alt={`Media ${index + 1}`}
-                          className="w-full h-auto"
-                        />
-                      ) : (
-                        <video src={media.url} controls className="w-full" />
-                      )}
+                  {post.media?.images?.map((img, index) => (
+                    <div
+                      key={`img-${index}`}
+                      className="rounded-lg overflow-hidden"
+                    >
+                      <img
+                        src={img.url}
+                        alt={`Image ${index + 1}`}
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  ))}
+                  {post.media?.videos?.map((vid, index) => (
+                    <div
+                      key={`vid-${index}`}
+                      className="rounded-lg overflow-hidden"
+                    >
+                      <video src={vid.url} controls className="w-full" />
                     </div>
                   ))}
                 </div>
@@ -274,12 +310,12 @@ const PostDetail = () => {
                 </div>
                 <button
                   className={`btn btn-ghost btn-sm gap-2 ${
-                    post.isSaved ? "text-primary" : ""
+                    post?.isSaved ? "text-primary" : ""
                   }`}
                   onClick={handleSave}
                 >
                   <FiBookmark />
-                  {post.isSaved ? "Đã lưu" : "Lưu"}
+                  {post?.isSaved ? "Đã lưu" : "Lưu"}
                 </button>
                 <button
                   className="btn btn-ghost btn-sm gap-2"
