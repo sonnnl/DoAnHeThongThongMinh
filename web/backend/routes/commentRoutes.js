@@ -10,12 +10,13 @@ const express = require("express");
 const router = express.Router();
 
 const { authenticate, optionalAuth } = require("../middleware/auth");
+const aiAnalysis = require("../middleware/aiAnalysis");
 const commentController = require("../controllers/commentController");
 
 // @route   POST /api/comments
 // @desc    Tạo comment mới
 // @access  Private
-router.post("/", authenticate, commentController.createComment);
+router.post("/", authenticate, aiAnalysis, commentController.createComment);
 
 // @route   GET /api/comments/post/:postId
 // @desc    Lấy comments của bài viết

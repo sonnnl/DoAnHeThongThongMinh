@@ -130,6 +130,11 @@ const commentSchema = new mongoose.Schema(
         min: 0,
         max: 1,
       },
+      toxicType: {
+        type: String,
+        enum: ["clean", "toxic"],
+        default: "clean",
+      },
       analyzedAt: Date,
     },
 
@@ -250,11 +255,9 @@ commentSchema.methods.softDelete = async function (deletedBy) {
 
   // Nếu là reply, giảm repliesCount của parent
   if (this.parentComment) {
-    await mongoose
-      .model("Comment")
-      .findByIdAndUpdate(this.parentComment, {
-        $inc: { "stats.repliesCount": -1 },
-      });
+    await mongoose.model("Comment").findByIdAndUpdate(this.parentComment, {
+      $inc: { "stats.repliesCount": -1 },
+    });
   }
 };
 
@@ -296,11 +299,9 @@ commentSchema.methods.removeDownvote = async function () {
   this.updateScore();
   await this.save();
 
-  await mongoose
-    .model("User")
-    .findByIdAndUpdate(this.author, {
-      $inc: { "stats.downvotesReceived": -1 },
-    });
+  await mongoose.model("User").findByIdAndUpdate(this.author, {
+    $inc: { "stats.downvotesReceived": -1 },
+  });
 };
 
 // Method: Phân tích cảm xúc (sẽ gọi AI service)

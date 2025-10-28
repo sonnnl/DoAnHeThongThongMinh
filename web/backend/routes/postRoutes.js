@@ -10,6 +10,7 @@ const express = require("express");
 const router = express.Router();
 
 const { authenticate, optionalAuth } = require("../middleware/auth");
+const aiAnalysis = require("../middleware/aiAnalysis");
 const postController = require("../controllers/postController");
 
 // @route   GET /api/posts/search
@@ -35,7 +36,7 @@ router.get("/", optionalAuth, postController.getPosts);
 // @route   POST /api/posts
 // @desc    Tạo post mới
 // @access  Private
-router.post("/", authenticate, postController.createPost);
+router.post("/", authenticate, aiAnalysis, postController.createPost);
 
 // @route   GET /api/posts/:slug
 // @desc    Lấy chi tiết post

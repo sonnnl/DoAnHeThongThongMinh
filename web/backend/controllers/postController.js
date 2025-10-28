@@ -65,10 +65,6 @@ exports.createPost = async (req, res, next) => {
       slug = `${slug}-${Date.now()}`;
     }
 
-    // TODO: Tích hợp AI để kiểm tra spam/toxic content
-    // const isSpam = await checkSpam(content);
-    // const isToxic = await checkToxic(content);
-
     // Chuẩn hóa media vào đúng schema
     const images = (mediaFiles || [])
       .filter((m) => (m.type || m.resourceType) === "image")
@@ -77,6 +73,24 @@ exports.createPost = async (req, res, next) => {
     const videos = (mediaFiles || [])
       .filter((m) => (m.type || m.resourceType) === "video")
       .map((m) => ({ url: m.url, publicId: m.publicId }));
+
+    // AI Analysis từ middleware
+    const aiAnalysis = req.aiAnalysis || {};
+
+    // Log AI Analysis
+    console.log("🤖 AI Analysis:", JSON.stringify(aiAnalysis, null, 2));
+
+    // Check if toxic - reject hoặc warning
+    const TOXIC_THRESHOLD = 0.7; // Nếu score > 70% thì reject
+
+    if (aiAnalysis.isToxic && aiAnalysis.toxicScore > TOXIC_THRESHOLD) {
+      return res.status(400).json({
+        success: false,
+        message: `Tiêu đề và nội dung của bạn có thể chứa ngôn từ không phù hợp (toxic score: ${(
+          aiAnalysis.toxicScore * 100
+        ).toFixed(1)}%). Vui lòng điều chỉnh lại nội dung.`,
+      });
+    }
 
     // Tạo post
     const post = await Post.create({
@@ -87,6 +101,14 @@ exports.createPost = async (req, res, next) => {
       category,
       media: { images, videos },
       tags: tags || [],
+      aiAnalysis: {
+        isToxic: aiAnalysis.isToxic || false,
+        toxicScore: aiAnalysis.toxicScore || 0,
+        toxicType: aiAnalysis.toxicType || "clean",
+        emotion: aiAnalysis.emotion || "neutral",
+        emotionScore: aiAnalysis.emotionScore || 0,
+        analyzedAt: aiAnalysis.analyzedAt || null,
+      },
     });
 
     // Update user stats

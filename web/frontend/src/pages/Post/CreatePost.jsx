@@ -41,24 +41,12 @@ const CreatePost = () => {
       const errorMessage =
         error.response?.data?.message || "Tạo bài viết thất bại";
 
-      // Parse validation errors từ backend
-      if (errorMessage.includes("validation failed")) {
-        const newErrors = {};
-        if (errorMessage.includes("title")) {
-          newErrors.title = "Tiêu đề phải từ 10-300 ký tự";
-        }
-        if (
-          errorMessage.includes("content") &&
-          errorMessage.includes("shorter")
-        ) {
-          newErrors.content = "Nội dung phải có ít nhất 20 ký tự";
-        }
-        if (
-          errorMessage.includes("content") &&
-          errorMessage.includes("longer")
-        ) {
-          newErrors.content = "Nội dung không được vượt quá 50,000 ký tự";
-        }
+      // Check if it's a toxic content error
+      if (
+        errorMessage.includes("toxic") ||
+        errorMessage.includes("ngôn từ không phù hợp")
+      ) {
+        const newErrors = { general: errorMessage };
         setErrors(newErrors);
       } else {
         // Lỗi khác (server, network, etc.)
@@ -186,6 +174,25 @@ const CreatePost = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Tạo bài viết mới</h1>
+
+      {errors.general && (
+        <div className="alert alert-error mb-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span>{errors.general}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Category */}

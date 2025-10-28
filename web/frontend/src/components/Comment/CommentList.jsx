@@ -16,9 +16,14 @@ const CommentList = ({ postId }) => {
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
   const [sort, setSort] = useState("best");
+  const [error, setError] = useState("");
 
   // Fetch comments
-  const { data, isLoading, error } = useQuery(
+  const {
+    data,
+    isLoading,
+    error: queryError,
+  } = useQuery(
     ["comments", postId, sort],
     () => commentsAPI.getCommentsByPost(postId, { sort }),
     {
@@ -33,16 +38,20 @@ const CommentList = ({ postId }) => {
       onSuccess: () => {
         toast.success("Bình luận thành công!");
         setNewComment("");
+        setError("");
         queryClient.invalidateQueries(["comments", postId]);
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || "Bình luận thất bại");
+        const errorMessage =
+          error.response?.data?.message || "Bình luận thất bại";
+        setError(errorMessage);
       },
     }
   );
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError("");
 
     if (!isAuthenticated) {
       toast.error("Vui lòng đăng nhập để bình luận");
@@ -68,12 +77,35 @@ const CommentList = ({ postId }) => {
             <h3 className="font-semibold mb-2">Viết bình luận</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <textarea
-                className="textarea textarea-bordered w-full"
+                className={`textarea textarea-bordered w-full ${
+                  error ? "textarea-error" : ""
+                }`}
                 placeholder="Chia sẻ suy nghĩ của bạn..."
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={(e) => {
+                  setNewComment(e.target.value);
+                  if (error) setError(""); // Clear error when typing
+                }}
                 rows={4}
               ></textarea>
+              {error && (
+                <div className="alert alert-error py-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>{error}</span>
+                </div>
+              )}
               <button
                 type="submit"
                 className={`btn btn-primary ${
@@ -116,7 +148,7 @@ const CommentList = ({ postId }) => {
       {/* Comments list */}
       {isLoading ? (
         <Loading />
-      ) : error ? (
+      ) : queryError ? (
         <div className="alert alert-error">Lỗi khi tải bình luận</div>
       ) : comments.length === 0 ? (
         <div className="text-center py-12 text-base-content/60">

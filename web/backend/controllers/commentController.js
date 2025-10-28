@@ -60,9 +60,29 @@ exports.createComment = async (req, res, next) => {
       depth = parent.depth + 1;
     }
 
-    // TODO: Tích hợp AI để phân tích cảm xúc và toxic
-    // const emotion = await detectEmotion(content);
-    // const isToxic = await checkToxic(content);
+    // AI Analysis từ middleware
+    const aiAnalysis = req.aiAnalysis || {};
+
+    // Log AI Analysis
+    console.log(
+      "🤖 AI Analysis (Comment):",
+      JSON.stringify(aiAnalysis, null, 2)
+    );
+
+    // Check if toxic - reject hoặc warning
+    const TOXIC_THRESHOLD = 0.7; // Nếu score > 70% thì reject
+
+    if (aiAnalysis.isToxic && aiAnalysis.toxicScore > TOXIC_THRESHOLD) {
+      return res.status(400).json({
+        success: false,
+        message: `Nội dung của bạn có thể chứa ngôn từ không phù hợp (toxic score: ${(
+          aiAnalysis.toxicScore * 100
+        ).toFixed(1)}%). Vui lòng điều chỉnh lại nội dung.`,
+      });
+    }
+
+    // Update emotion field
+    const emotion = aiAnalysis.emotion || "neutral";
 
     // Tạo comment
     const comment = await Comment.create({
@@ -72,8 +92,17 @@ exports.createComment = async (req, res, next) => {
       parentComment: parentComment || null,
       depth,
       mediaUrl: mediaUrl || null,
-      // emotion: emotion,
-      // isToxic: isToxic,
+      emotion: {
+        label: emotion,
+        confidence: aiAnalysis.emotionScore || 0,
+        analyzedAt: aiAnalysis.analyzedAt || null,
+      },
+      aiAnalysis: {
+        isToxic: aiAnalysis.isToxic || false,
+        toxicScore: aiAnalysis.toxicScore || 0,
+        toxicType: aiAnalysis.toxicType || "clean",
+        analyzedAt: aiAnalysis.analyzedAt || null,
+      },
     });
 
     // Update post stats

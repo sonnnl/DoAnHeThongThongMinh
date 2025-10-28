@@ -152,11 +152,36 @@ const postSchema = new mongoose.Schema(
         min: 0,
         max: 1,
       },
+      toxicType: {
+        type: String,
+        enum: ["clean", "toxic"],
+        default: "clean",
+      },
       isSpam: {
         type: Boolean,
         default: false,
       },
       spamScore: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 1,
+      },
+      emotion: {
+        type: String,
+        enum: [
+          "joy",
+          "sadness",
+          "anger",
+          "fear",
+          "surprise",
+          "disgust",
+          "trust",
+          "neutral",
+        ],
+        default: "neutral",
+      },
+      emotionScore: {
         type: Number,
         default: 0,
         min: 0,
