@@ -22,6 +22,7 @@ import {
   FiUser,
   FiCalendar,
   FiEye,
+  FiTag,
 } from "react-icons/fi";
 import {
   timeAgo,
@@ -209,9 +210,13 @@ const PostDetail = () => {
               {post.category && (
                 <Link
                   to={`/c/${post.category.slug}`}
-                  className="badge badge-primary badge-lg mb-3"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium mb-3 border shadow-sm bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
+                  title={`Chuyên mục: ${post.category.name}`}
                 >
-                  {post.category.name}
+                  <FiTag className="text-[14px]" />
+                  <span className="truncate max-w-[200px]">
+                    {post.category.name}
+                  </span>
                 </Link>
               )}
 
@@ -235,17 +240,21 @@ const PostDetail = () => {
                       <FiUser />
                     </div>
                   )}
-                  <div>
+                  <div className="flex items-center gap-2">
                     <div className="font-semibold text-base-content">
                       {post.author.username}
                     </div>
-                    <div
-                      className={`badge badge-xs ${getBadgeClass(
-                        post.author.badge
-                      )}`}
-                    >
-                      {post.author.badge}
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-base-200 text-base-content border border-base-300">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-3 h-3 text-amber-500"
+                      >
+                        <path d="M11.48 3.499a.562.562 0 011.04 0l1.462 3.73a.563.563 0 00.475.354l3.993.332c.499.042.701.663.321.988l-3.04 2.62a.563.563 0 00-.182.557l.91 3.867a.562.562 0 01-.84.61l-3.44-1.937a.563.563 0 00-.555 0L8.14 16.557a.562.562 0 01-.84-.61l.91-3.867a.563.563 0 00-.182-.557l-3.04-2.62a.563.563 0 01.321-.988l3.993-.332a.563.563 0 00.475-.354l1.462-3.73z" />
+                      </svg>
+                      <span>{post.author.badge}</span>
+                    </span>
                   </div>
                 </Link>
                 <span className="flex items-center gap-1">

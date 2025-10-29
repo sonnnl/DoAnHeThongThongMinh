@@ -28,6 +28,7 @@ import Categories from "./pages/Category/Categories";
 import Messages from "./pages/Messages/Messages";
 import Notifications from "./pages/Notifications";
 import Search from "./pages/Search";
+import Trending from "./pages/Trending";
 import NotFound from "./pages/NotFound";
 
 // Protected Route Component
@@ -67,6 +68,7 @@ function App() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/trending" element={<Trending />} />
 
         {/* Categories */}
         <Route path="/categories" element={<Categories />} />

@@ -23,7 +23,7 @@ const MainLayout = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="lg:col-span-9">
+            <main className="lg:col-span-9 min-h-[70vh]">
               <Outlet />
             </main>
           </div>

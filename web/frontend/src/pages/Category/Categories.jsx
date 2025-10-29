@@ -20,8 +20,7 @@ const Categories = () => {
     return <div className="alert alert-error">Lỗi khi tải danh mục</div>;
 
   // data đã được unwrap 2 lần, trực tiếp là array
-  const categories = data || [];
-
+  const categories = data.data;
   return (
     <div>
       <div className="flex items-center justify-between mb-6">

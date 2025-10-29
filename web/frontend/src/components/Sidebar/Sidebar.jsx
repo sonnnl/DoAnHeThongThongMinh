@@ -21,7 +21,7 @@ const Sidebar = () => {
   const menuItems = [
     { path: "/", label: "Trang chủ", icon: FiHome, public: true },
     {
-      path: "/posts?sort=trending",
+      path: "/trending",
       label: "Thịnh hành",
       icon: FiTrendingUp,
       public: true,
@@ -29,12 +29,16 @@ const Sidebar = () => {
     { path: "/categories", label: "Danh mục", icon: FiFolder, public: true },
     { path: "/posts/saved", label: "Đã lưu", icon: FiBookmark, public: false },
     // Only add profile link if user has username
-    ...(user?.username ? [{
-      path: `/u/${user.username}`,
-      label: "Profile",
-      icon: FiUsers,
-      public: false,
-    }] : []),
+    ...(user?.username
+      ? [
+          {
+            path: `/u/${user.username}`,
+            label: "Profile",
+            icon: FiUsers,
+            public: false,
+          },
+        ]
+      : []),
     { path: "/settings", label: "Cài đặt", icon: FiSettings, public: false },
   ];
 

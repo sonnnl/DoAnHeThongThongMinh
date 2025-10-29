@@ -24,6 +24,10 @@ const Profile = () => {
     () => usersAPI.getUserProfile(username),
     {
       enabled: !!username,
+      staleTime: 60 * 1000, // tránh refetch gấp gây nháy lần đầu
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
     }
   );
 
@@ -37,6 +41,10 @@ const Profile = () => {
     () => usersAPI.getUserPosts(userId, { limit: 20 }),
     {
       enabled: !!userId,
+      staleTime: 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
     }
   );
 
@@ -46,10 +54,63 @@ const Profile = () => {
     () => usersAPI.getUserComments(userId, { limit: 20 }),
     {
       enabled: !!userId,
+      staleTime: 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
     }
   );
 
-  if (isLoading) return <Loading />;
+  if (isLoading) {
+    return (
+      <div>
+        {/* Profile Header Skeleton */}
+        <div className="card bg-base-100 shadow-md mb-6">
+          <div className="card-body">
+            <div className="flex flex-col md:flex-row gap-6 min-h-[140px] animate-pulse">
+              <div className="avatar">
+                <div className="w-32 h-32 rounded-full bg-base-200" />
+              </div>
+              <div className="flex-1">
+                <div className="h-6 w-48 bg-base-200 rounded mb-3" />
+                <div className="h-4 w-3/4 bg-base-200 rounded mb-3" />
+                <div className="h-4 w-1/2 bg-base-200 rounded mb-4" />
+                <div className="grid grid-cols-3 gap-3 max-w-md">
+                  <div className="h-12 bg-base-200 rounded" />
+                  <div className="h-12 bg-base-200 rounded" />
+                  <div className="h-12 bg-base-200 rounded" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="tabs tabs-boxed mb-6">
+          <button className="tab tab-active">Bài viết</button>
+          <button className="tab">Bình luận</button>
+        </div>
+
+        {/* List Skeleton */}
+        <div className="space-y-4 min-h-[300px]">
+          <div className="card bg-base-100 shadow-md animate-pulse">
+            <div className="card-body">
+              <div className="h-5 w-2/3 bg-base-200 rounded mb-2" />
+              <div className="h-4 w-full bg-base-200 rounded mb-2" />
+              <div className="h-4 w-5/6 bg-base-200 rounded" />
+            </div>
+          </div>
+          <div className="card bg-base-100 shadow-md animate-pulse">
+            <div className="card-body">
+              <div className="h-5 w-1/2 bg-base-200 rounded mb-2" />
+              <div className="h-4 w-5/6 bg-base-200 rounded mb-2" />
+              <div className="h-4 w-2/3 bg-base-200 rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!user) {
     return (
       <div className="card bg-base-100 shadow-md">
