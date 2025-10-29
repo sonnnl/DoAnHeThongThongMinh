@@ -87,8 +87,16 @@ const Profile = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-bold">{user?.username}</h1>
-                <span className={`badge ${getBadgeClass(user?.badge)}`}>
-                  {user?.badge}
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-base-200 text-base-content border border-base-300">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-3.5 h-3.5 text-amber-500"
+                  >
+                    <path d="M11.48 3.499a.562.562 0 011.04 0l1.462 3.73a.563.563 0 00.475.354l3.993.332c.499.042.701.663.321.988l-3.04 2.62a.563.563 0 00-.182.557l.91 3.867a.562.562 0 01-.84.61l-3.44-1.937a.563.563 0 00-.555 0L8.14 16.557a.562.562 0 01-.84-.61l.91-3.867a.563.563 0 00-.182-.557l-3.04-2.62a.563.563 0 01.321-.988l3.993-.332a.563.563 0 00.475-.354l1.462-3.73z" />
+                  </svg>
+                  <span>{user?.badge}</span>
                 </span>
               </div>
 
@@ -176,7 +184,7 @@ const Profile = () => {
         <div className="space-y-4">
           {postsData?.posts?.length > 0 ? (
             postsData.posts.map((post) => (
-              <PostCard key={post._id} post={post} />
+              <PostCard key={post._id} post={post} hideVoteButtons={true} />
             ))
           ) : (
             <div className="text-center py-12 text-base-content/60">

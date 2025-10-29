@@ -250,7 +250,7 @@ exports.getPost = async (req, res, next) => {
     }
 
     // Tăng view count
-    await Post.findByIdAndUpdate(post._id, { $inc: { "stats.views": 1 } });
+    await Post.findByIdAndUpdate(post._id, { $inc: { "stats.viewsCount": 1 } });
 
     // Update author view stats
     await User.findByIdAndUpdate(post.author._id, {
@@ -303,7 +303,7 @@ exports.getPostById = async (req, res, next) => {
     }
 
     // Tăng view count
-    await Post.findByIdAndUpdate(post._id, { $inc: { "stats.views": 1 } });
+    await Post.findByIdAndUpdate(post._id, { $inc: { "stats.viewsCount": 1 } });
 
     // Nếu user đang đăng nhập, lấy vote status và saved status
     if (req.user) {
@@ -634,7 +634,7 @@ exports.getTrendingPosts = async (req, res, next) => {
     const posts = await Post.find({
       createdAt: { $gte: oneWeekAgo },
     })
-      .sort({ score: -1, "stats.views": -1 })
+      .sort({ score: -1, "stats.viewsCount": -1 })
       .limit(parseInt(limit))
       .populate("author", "username avatar badge")
       .populate("category", "name slug color")

@@ -37,12 +37,23 @@ const PrivateRoute = ({ children }) => {
 };
 
 function App() {
-  const { initializeAuth } = useAuthStore();
+  const { initializeAuth, isAuthenticated, fetchCurrentUser } = useAuthStore();
 
   useEffect(() => {
     // Initialize auth từ localStorage khi app mount
     initializeAuth();
   }, [initializeAuth]);
+
+  useEffect(() => {
+    // Sau khi đã có trạng thái đăng nhập, refetch user để đồng bộ stats real-time
+    if (isAuthenticated) {
+      fetchCurrentUser();
+
+      const onFocus = () => fetchCurrentUser();
+      window.addEventListener("focus", onFocus);
+      return () => window.removeEventListener("focus", onFocus);
+    }
+  }, [isAuthenticated, fetchCurrentUser]);
 
   return (
     <Routes>

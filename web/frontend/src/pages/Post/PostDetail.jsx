@@ -254,7 +254,7 @@ const PostDetail = () => {
                 </span>
                 <span className="flex items-center gap-1">
                   <FiEye />
-                  {formatNumber(post.stats?.views || 0)} lượt xem
+                  {formatNumber(post.stats?.viewsCount || 0)} lượt xem
                 </span>
                 <span>{calculateReadingTime(post.content)}</span>
               </div>

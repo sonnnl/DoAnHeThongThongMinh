@@ -170,7 +170,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               <FiArrowUp />
             </button>
             <span className="text-sm font-bold">
-              {formatNumber(comment.stats?.score || 0)}
+              {formatNumber(
+                comment.stats.upvotes - comment.stats.downvotes || 0
+              )}
             </span>
             <button
               className={`btn btn-ghost btn-xs btn-circle ${

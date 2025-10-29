@@ -122,7 +122,11 @@ const Search = () => {
                     Tìm thấy {posts.length} bài viết
                   </p>
                   {posts.map((post) => (
-                    <PostCard key={post._id} post={post} />
+                    <PostCard
+                      key={post._id}
+                      post={post}
+                      hideVoteButtons={true}
+                    />
                   ))}
                 </div>
               )}
