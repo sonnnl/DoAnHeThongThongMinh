@@ -18,6 +18,7 @@
 const Comment = require("../models/Comment");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const Vote = require("../models/Vote");
 
 // @desc    Tạo comment mới
@@ -47,8 +48,10 @@ exports.createComment = async (req, res, next) => {
       });
     }
 
-    // Nếu là reply, kiểm tra parent comment
+    // Nếu là reply, kiểm tra parent comment (FB-like: gom về root, có replyTo)
     let depth = 0;
+    let rootParentId = null;
+    let replyToUser = null;
     if (parentComment) {
       const parent = await Comment.findById(parentComment);
       if (!parent || parent.isDeleted) {
@@ -57,7 +60,14 @@ exports.createComment = async (req, res, next) => {
           message: "Không tìm thấy comment gốc",
         });
       }
-      depth = parent.depth + 1;
+      if (parent.depth >= 1 && parent.parentComment) {
+        rootParentId = parent.parentComment;
+        replyToUser = parent.author;
+      } else {
+        rootParentId = parent._id;
+        replyToUser = parent.author;
+      }
+      depth = 1; // UI chỉ hiển thị 2 cấp
     }
 
     // AI Analysis từ middleware
@@ -89,7 +99,8 @@ exports.createComment = async (req, res, next) => {
       post: postId,
       author: req.user.id,
       content,
-      parentComment: parentComment || null,
+      parentComment: rootParentId || parentComment || null,
+      replyTo: replyToUser || null,
       depth,
       mediaUrl: mediaUrl || null,
       emotion: {
@@ -119,6 +130,48 @@ exports.createComment = async (req, res, next) => {
 
     user.updateBadge();
     await user.save();
+
+    // Nếu là reply, tăng repliesCount của root parent
+    if (rootParentId) {
+      await Comment.findByIdAndUpdate(rootParentId, {
+        $inc: { "stats.repliesCount": 1 },
+      });
+    }
+
+    // Tạo notification: Ai đó bình luận vào post của bạn (post_comment)
+    try {
+      if (post.author && post.author.toString() !== req.user.id) {
+        await Notification.createNotification({
+          recipient: post.author,
+          sender: req.user.id,
+          type: "post_comment",
+          title: "Bình luận mới",
+          message: `${user.username} đã bình luận vào bài viết của bạn`,
+          targetType: "Post",
+          targetId: post._id,
+          link: `/post/${post.slug}#comments`,
+          metadata: { commentId: comment._id },
+        });
+      }
+
+      // Nếu là reply vào bình luận của người khác -> thông báo cho đúng người được trả lời
+      if (replyToUser && replyToUser.toString() !== req.user.id) {
+        await Notification.createNotification({
+          recipient: replyToUser,
+          sender: req.user.id,
+          type: "comment_reply",
+          title: "Trả lời mới",
+          message: `${user.username} đã trả lời bình luận của bạn`,
+          targetType: "Comment",
+          targetId: rootParentId || parentComment,
+          link: `/post/${post.slug}#comments`,
+          metadata: { commentId: comment._id },
+        });
+      }
+    } catch (e) {
+      // Không chặn request nếu lỗi thông báo
+      console.error("Notification error (post_comment):", e.message);
+    }
 
     // Populate và return
     await comment.populate("author", "username avatar badge");
@@ -182,19 +235,23 @@ exports.getCommentsByPost = async (req, res, next) => {
 
     const total = await Comment.countDocuments(query);
 
-    // Lấy số lượng replies cho mỗi comment
+    // Lấy số lượng replies: chỉ tính cho comment cấp 0
     for (let comment of comments) {
-      comment.repliesCount = await Comment.countDocuments({
-        parentComment: comment._id,
-        isDeleted: false,
-      });
+      if (comment.depth === 0) {
+        comment.repliesCount = await Comment.countDocuments({
+          parentComment: comment._id,
+          isDeleted: false,
+        });
+      } else {
+        comment.repliesCount = 0;
+      }
 
       // Nếu user đang đăng nhập, lấy vote status
       if (req.user) {
         const vote = await Vote.findOne({
           user: req.user.id,
-          contentType: "Comment",
-          contentId: comment._id,
+          targetType: "Comment",
+          targetId: comment._id,
         });
         comment.userVote = vote ? vote.voteType : null;
       }
@@ -227,19 +284,8 @@ exports.getCommentReplies = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    let sortQuery = {};
-    switch (sort) {
-      case "new":
-        sortQuery = { createdAt: -1 };
-        break;
-      case "old":
-        sortQuery = { createdAt: 1 };
-        break;
-      case "best":
-      default:
-        sortQuery = { score: -1, createdAt: -1 };
-        break;
-    }
+    // Replies luôn theo mốc thời gian (cũ trước mới) để giữ mạch hội thoại
+    const sortQuery = { createdAt: 1 };
 
     const replies = await Comment.find({
       parentComment: commentId,
@@ -249,6 +295,7 @@ exports.getCommentReplies = async (req, res, next) => {
       .skip(skip)
       .limit(parseInt(limit))
       .populate("author", "username avatar badge")
+      .populate("replyTo", "username")
       .lean();
 
     const total = await Comment.countDocuments({
@@ -261,8 +308,8 @@ exports.getCommentReplies = async (req, res, next) => {
       for (let reply of replies) {
         const vote = await Vote.findOne({
           user: req.user.id,
-          contentType: "Comment",
-          contentId: reply._id,
+          targetType: "Comment",
+          targetId: reply._id,
         });
         reply.userVote = vote ? vote.voteType : null;
       }
@@ -416,8 +463,8 @@ exports.getComment = async (req, res, next) => {
     if (req.user) {
       const vote = await Vote.findOne({
         user: req.user.id,
-        contentType: "Comment",
-        contentId: comment._id,
+        targetType: "Comment",
+        targetId: comment._id,
       });
       comment.userVote = vote ? vote.voteType : null;
     }

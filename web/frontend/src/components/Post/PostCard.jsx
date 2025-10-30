@@ -12,6 +12,7 @@ import {
   FiBookmark,
   FiStar,
   FiTag,
+  FiEye,
 } from "react-icons/fi";
 import { timeAgo, formatNumber } from "../../utils/helpers";
 import { useMutation, useQueryClient } from "react-query";
@@ -128,14 +129,22 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
 
             {/* Stats & Actions */}
             <div className="flex items-center justify-between gap-4">
-              <Link
-                to={`/post/${post.slug}#comments`}
-                className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
-                title="Xem bình luận"
-              >
-                <FiMessageSquare />
-                <span>{post.stats?.commentsCount || 0} bình luận</span>
-              </Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  to={`/post/${post.slug}#comments`}
+                  className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
+                  title="Xem bình luận"
+                >
+                  <FiMessageSquare />
+                  <span>{post.stats?.commentsCount || 0} bình luận</span>
+                </Link>
+                {typeof post?.stats?.viewsCount === "number" && (
+                  <span className="flex items-center gap-1 text-sm text-base-content/60" title="Lượt xem">
+                    <FiEye />
+                    {formatNumber(post.stats.viewsCount)}
+                  </span>
+                )}
+              </div>
 
               <SaveButton
                 post={post}

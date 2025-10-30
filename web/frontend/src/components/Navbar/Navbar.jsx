@@ -5,6 +5,7 @@
 
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useQuery } from "react-query";
 import {
   FiSearch,
   FiBell,
@@ -19,6 +20,7 @@ import {
 } from "react-icons/fi";
 import { useAuthStore } from "../../store/authStore";
 import { useThemeStore } from "../../store/themeStore";
+import { notificationsAPI } from "../../services/api";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -39,6 +41,18 @@ const Navbar = () => {
     await logout();
     navigate("/login");
   };
+
+  // Unread notifications count for bell badge
+  const { data: unreadData } = useQuery(
+    ["notifications", "unreadCount"],
+    () => notificationsAPI.getUnreadCount(),
+    {
+      enabled: isAuthenticated,
+      refetchInterval: 30000,
+      refetchOnWindowFocus: true,
+    }
+  );
+  const unreadCount = unreadData?.data?.count ?? unreadData?.count ?? 0;
 
   return (
     <div className="bg-base-100 border-b border-base-300 sticky top-0 z-50">
@@ -94,32 +108,21 @@ const Navbar = () => {
                   <FiPlus /> Tạo bài viết
                 </Link>
 
-                {/* Notifications */}
-                <div className="dropdown dropdown-end">
-                  <button
-                    className="btn btn-ghost btn-circle"
-                    title="Thông báo"
-                  >
-                    <div className="indicator">
-                      <FiBell className="text-lg" />
-                      <span className="badge badge-xs badge-primary indicator-item"></span>
-                    </div>
-                  </button>
-                  <div className="dropdown-content mt-3 z-[1] card card-compact w-80 bg-base-100 shadow-xl border border-base-300">
-                    <div className="card-body">
-                      <h3 className="font-bold text-lg">Thông báo</h3>
-                      <p className="text-sm text-base-content/60">
-                        Chưa có thông báo mới
-                      </p>
-                      <Link
-                        to="/notifications"
-                        className="btn btn-primary btn-sm mt-2"
-                      >
-                        Xem tất cả
-                      </Link>
-                    </div>
+                {/* Notifications: simple and clean */}
+                <Link
+                  to="/notifications"
+                  className="btn btn-ghost btn-circle"
+                  title="Thông báo"
+                >
+                  <div className="indicator">
+                    <FiBell className="text-lg" />
+                    {unreadCount > 0 && (
+                      <span className="badge badge-primary badge-xs indicator-item">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                   </div>
-                </div>
+                </Link>
 
                 {/* Messages */}
                 <Link

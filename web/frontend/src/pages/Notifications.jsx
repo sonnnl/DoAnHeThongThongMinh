@@ -25,7 +25,6 @@ const Notifications = () => {
   const { data, isLoading, error } = useQuery("notifications", () =>
     notificationsAPI.getNotifications()
   );
-
   // Mark as read mutation
   const markAsReadMutation = useMutation(
     (notificationId) => notificationsAPI.markAsRead(notificationId),
@@ -84,7 +83,7 @@ const Notifications = () => {
   if (error)
     return <div className="alert alert-error">Lỗi khi tải thông báo</div>;
 
-  const notifications = data?.data?.notifications || [];
+  const notifications = data?.notifications || [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -131,10 +130,10 @@ const Notifications = () => {
                   <div className="flex-1 min-w-0">
                     {/* User avatar & name */}
                     <div className="flex items-center gap-2 mb-2">
-                      {notification.fromUser?.avatar ? (
+                      {notification.sender?.avatar ? (
                         <img
-                          src={notification.fromUser.avatar}
-                          alt={notification.fromUser.username}
+                          src={notification.sender.avatar}
+                          alt={notification.sender.username}
                           className="w-8 h-8 rounded-full"
                         />
                       ) : (
@@ -143,10 +142,14 @@ const Notifications = () => {
                         </div>
                       )}
                       <Link
-                        to={`/u/${notification.fromUser?.username}`}
+                        to={
+                          notification.sender?.username
+                            ? `/u/${notification.sender.username}`
+                            : "#"
+                        }
                         className="font-semibold hover:text-primary"
                       >
-                        {notification.fromUser?.username}
+                        {notification.sender?.username || "Hệ thống"}
                       </Link>
                       <span className="text-sm text-base-content/60">
                         {timeAgo(notification.createdAt)}

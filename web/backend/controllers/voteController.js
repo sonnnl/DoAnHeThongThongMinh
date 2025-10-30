@@ -16,6 +16,7 @@ const Vote = require("../models/Vote");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 
 // @desc    Vote cho content (Post hoặc Comment)
 // @route   POST /api/votes
@@ -81,6 +82,7 @@ exports.vote = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     const contentAuthor = await User.findById(content.author);
 
+    let shouldNotifyUpvote = false;
     if (existingVote) {
       // Nếu vote giống với vote cũ -> remove vote
       if (existingVote.voteType === voteType) {
@@ -124,6 +126,10 @@ exports.vote = async (req, res, next) => {
 
         existingVote.voteType = voteType;
         await existingVote.save();
+
+        if (voteType === "upvote") {
+          shouldNotifyUpvote = true;
+        }
       }
     } else {
       // Tạo vote mới
@@ -144,6 +150,10 @@ exports.vote = async (req, res, next) => {
         user.stats.downvotesGiven += 1;
         contentAuthor.stats.downvotesReceived += 1;
       }
+
+      if (voteType === "upvote") {
+        shouldNotifyUpvote = true;
+      }
     }
 
     // Update score
@@ -154,6 +164,31 @@ exports.vote = async (req, res, next) => {
     contentAuthor.updateBadge();
     await contentAuthor.save();
     await user.save();
+
+    // Notification: chỉ thông báo khi là upvote và không tự vote
+    try {
+      if (
+        shouldNotifyUpvote &&
+        contentAuthor &&
+        contentAuthor._id.toString() !== req.user.id
+      ) {
+        const isPost = contentType === "Post";
+        await Notification.createNotification({
+          recipient: contentAuthor._id,
+          sender: req.user.id,
+          type: isPost ? "post_upvote" : "comment_upvote",
+          title: isPost ? "Upvote bài viết" : "Upvote bình luận",
+          message: isPost
+            ? `${user.username} đã upvote bài viết của bạn`
+            : `${user.username} đã upvote bình luận của bạn`,
+          targetType: contentType,
+          targetId: contentId,
+          link: isPost ? `/post/${content.slug || content._id}` : `/post/${content.post || ""}#comments`,
+        });
+      }
+    } catch (e) {
+      console.error("Notification error (upvote):", e.message);
+    }
 
     res.status(200).json({
       success: true,

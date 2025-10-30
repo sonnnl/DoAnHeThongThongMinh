@@ -51,6 +51,13 @@ const commentSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Reply to specific user (for FB-like threading under root)
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     // Depth level (0 = top level, 1 = reply to top level, etc.)
     depth: {
       type: Number,

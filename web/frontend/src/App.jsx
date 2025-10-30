@@ -30,6 +30,7 @@ import Notifications from "./pages/Notifications";
 import Search from "./pages/Search";
 import Trending from "./pages/Trending";
 import NotFound from "./pages/NotFound";
+import SavedPosts from "./pages/SavedPosts";
 
 // Protected Route Component
 const PrivateRoute = ({ children }) => {
@@ -69,6 +70,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<Search />} />
         <Route path="/trending" element={<Trending />} />
+        <Route path="/posts/saved" element={<PrivateRoute><SavedPosts /></PrivateRoute>} />
 
         {/* Categories */}
         <Route path="/categories" element={<Categories />} />

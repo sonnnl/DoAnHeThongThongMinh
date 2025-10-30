@@ -3,7 +3,7 @@
  * MỤC ĐÍCH: Comment component với vote, reply, emotion
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "react-query";
 import { commentsAPI, votesAPI } from "../../services/api";
@@ -32,16 +32,78 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const [editContent, setEditContent] = useState(comment.content);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState("");
+  const [showReplies, setShowReplies] = useState(false);
+  const [replies, setReplies] = useState([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [repliesRefreshing, setRepliesRefreshing] = useState(false);
+  const textareaRef = useRef(null);
 
   const isAuthor = user?._id === comment.author._id;
-  const canReply = depth < 5; // Max 5 levels deep
-
+  const canReply = true; // Cho phép reply ở mọi bình luận; backend gom về root để hiển thị 2 cấp
+  console.log(comment);
   // Vote mutation
   const voteMutation = useMutation(
     (voteType) => votesAPI.vote("Comment", comment._id, voteType),
     {
-      onSuccess: () => {
+      onSuccess: (res, voteType) => {
         setVoteError("");
+        // Optimistic local update for immediate feedback
+        const prev = comment.userVote;
+        if (prev === voteType) {
+          comment.userVote = null;
+          if (voteType === "upvote")
+            comment.stats.upvotes = Math.max(
+              0,
+              (comment.stats.upvotes || 0) - 1
+            );
+          else
+            comment.stats.downvotes = Math.max(
+              0,
+              (comment.stats.downvotes || 0) - 1
+            );
+        } else {
+          // revert previous
+          if (prev === "upvote")
+            comment.stats.upvotes = Math.max(
+              0,
+              (comment.stats.upvotes || 0) - 1
+            );
+          if (prev === "downvote")
+            comment.stats.downvotes = Math.max(
+              0,
+              (comment.stats.downvotes || 0) - 1
+            );
+          // apply new
+          comment.userVote = voteType;
+          if (voteType === "upvote")
+            comment.stats.upvotes = (comment.stats.upvotes || 0) + 1;
+          else comment.stats.downvotes = (comment.stats.downvotes || 0) + 1;
+        }
+
+        // Ensure data is consistent by refetching
+        if (depth === 0 && showReplies) {
+          // refresh replies block if open
+          (async () => {
+            setRepliesLoading(true);
+            try {
+              const resp = await commentsAPI.getReplies(comment._id, {
+                sort: "best",
+              });
+              setReplies(resp.data?.data?.replies || resp.data?.replies || []);
+            } finally {
+              setRepliesLoading(false);
+            }
+          })();
+        }
+        if (depth > 0 && comment.parentComment) {
+          // Ask root comment to refetch its replies to reflect updated vote state
+          window.dispatchEvent(
+            new CustomEvent("refetch-replies", {
+              detail: { rootId: comment.parentComment },
+            })
+          );
+        }
+        // Invalidate list queries for counts/sorting
         queryClient.invalidateQueries(["comments", postId]);
       },
       onError: (error) => {
@@ -92,6 +154,17 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
         toast.success("Trả lời thành công!");
         setReplyContent("");
         setShowReplyForm(false);
+        const rootId = depth === 0 ? comment._id : comment.parentComment;
+        if (depth === 0) {
+          comment.repliesCount = (comment.repliesCount || 0) + 1;
+          if (showReplies) {
+            fetchReplies(rootId);
+          }
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("refetch-replies", { detail: { rootId } })
+          );
+        }
         queryClient.invalidateQueries(["comments", postId]);
       },
       onError: (error) => {
@@ -134,6 +207,69 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     replyMutation.mutate(replyContent);
   };
 
+  const openReply = () => {
+    setShowReplyForm(true);
+  };
+
+  useEffect(() => {
+    if (showReplyForm && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [showReplyForm]);
+
+  const fetchReplies = async (rootId) => {
+    if (replies.length > 0) setRepliesRefreshing(true);
+    else setRepliesLoading(true);
+    try {
+      const resp = await commentsAPI.getReplies(rootId, { sort: "best" });
+      setReplies(resp.data?.data?.replies || resp.data?.replies || []);
+    } finally {
+      setRepliesLoading(false);
+      setRepliesRefreshing(false);
+    }
+  };
+
+  const handleToggleReplies = async () => {
+    if (!showReplies) {
+      await fetchReplies(comment._id);
+    }
+    setShowReplies((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (depth !== 0) return;
+    const handler = (e) => {
+      const rootId = e.detail?.rootId;
+      if (rootId === comment._id) {
+        setShowReplies(true);
+        fetchReplies(rootId);
+      }
+    };
+    window.addEventListener("refetch-replies", handler);
+    return () => window.removeEventListener("refetch-replies", handler);
+  }, [depth, comment._id]);
+
+  // Render content with @mention link to profile
+  const renderContentWithMentions = (text) => {
+    if (!text) return null;
+    const parts = text.split(/(\@[a-zA-Z0-9_]+)/g);
+    return parts.map((part, idx) => {
+      if (part.startsWith && part.startsWith("@")) {
+        const username = part.substring(1);
+        return (
+          <Link
+            key={idx}
+            to={`/u/${username}`}
+            className="text-primary hover:underline"
+          >
+            {part}
+          </Link>
+        );
+      }
+      return <span key={idx}>{part}</span>;
+    });
+  };
+
   if (comment.isDeleted) {
     return (
       <div
@@ -156,8 +292,8 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
           {/* Vote buttons */}
           <div className="relative flex flex-col items-center gap-1">
             <button
-              className={`btn btn-ghost btn-xs btn-circle ${
-                comment.userVote === "upvote" ? "text-success" : ""
+              className={`btn btn-xs btn-circle ${
+                comment.userVote === "upvote" ? "btn-success" : "btn-ghost"
               }`}
               onClick={() => !isAuthor && handleVote("upvote")}
               disabled={isAuthor}
@@ -175,8 +311,8 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               )}
             </span>
             <button
-              className={`btn btn-ghost btn-xs btn-circle ${
-                comment.userVote === "downvote" ? "text-error" : ""
+              className={`btn btn-xs btn-circle ${
+                comment.userVote === "downvote" ? "btn-error" : "btn-ghost"
               }`}
               onClick={() => !isAuthor && handleVote("downvote")}
               disabled={isAuthor}
@@ -199,6 +335,19 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
           <div className="flex-1">
             {/* Header */}
             <div className="flex items-center gap-2 mb-2">
+              {comment.author?.avatar ? (
+                <img
+                  src={comment.author.avatar}
+                  alt={comment.author.username}
+                  className="w-6 h-6 rounded-full"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-primary text-primary-content flex items-center justify-center text-[10px]">
+                  <span>
+                    {comment.author?.username?.[0]?.toUpperCase() || "U"}
+                  </span>
+                </div>
+              )}
               <Link
                 to={`/u/${comment.author.username}`}
                 className="font-semibold hover:text-primary"
@@ -211,6 +360,17 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               {comment.isEdited && (
                 <span className="text-xs text-base-content/60 italic">
                   (đã sửa)
+                </span>
+              )}
+              {comment.replyTo?.username && (
+                <span className="text-xs text-base-content/60">
+                  đang trả lời
+                  <Link
+                    to={`/u/${comment.replyTo.username}`}
+                    className="ml-1 text-primary hover:underline"
+                  >
+                    @{comment.replyTo.username}
+                  </Link>
                 </span>
               )}
               {comment.emotion && (
@@ -251,7 +411,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                 </div>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap">{comment.content}</p>
+              <p className="whitespace-pre-wrap">
+                {renderContentWithMentions(comment.content)}
+              </p>
             )}
 
             {/* Actions */}
@@ -260,7 +422,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                 {canReply && isAuthenticated && (
                   <button
                     className="btn btn-ghost btn-xs gap-1"
-                    onClick={() => setShowReplyForm(!showReplyForm)}
+                    onClick={() =>
+                      showReplyForm ? setShowReplyForm(false) : openReply()
+                    }
                   >
                     <FiMessageSquare />
                     Trả lời
@@ -291,9 +455,15 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   </button>
                 )}
                 {comment.repliesCount > 0 && (
-                  <span className="text-xs text-base-content/60">
-                    {comment.repliesCount} trả lời
-                  </span>
+                  <button
+                    className="btn btn-ghost btn-xs"
+                    onClick={handleToggleReplies}
+                  >
+                    {showReplies ? "Ẩn" : "Xem"} {comment.repliesCount} trả lời
+                    {showReplies && repliesRefreshing && (
+                      <span className="loading loading-dots loading-xs ml-2" />
+                    )}
+                  </button>
                 )}
               </div>
             )}
@@ -307,6 +477,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   value={replyContent}
                   onChange={(e) => setReplyContent(e.target.value)}
                   rows={3}
+                  ref={textareaRef}
                 ></textarea>
                 <div className="flex gap-2">
                   <button
@@ -335,17 +506,27 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
       </div>
 
       {/* Replies */}
-      {comment.replies && comment.replies.length > 0 && (
+      {showReplies && (
         <div className="space-y-2">
-          {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply._id}
-              comment={reply}
-              postId={postId}
-              onReply={onReply}
-              depth={depth + 1}
-            />
-          ))}
+          {replies.length === 0 && repliesLoading ? (
+            <div className="text-sm text-base-content/60 pl-12">
+              Đang tải trả lời...
+            </div>
+          ) : replies.length === 0 ? (
+            <div className="text-sm text-base-content/60 pl-12">
+              Chưa có trả lời
+            </div>
+          ) : (
+            replies.map((reply) => (
+              <CommentItem
+                key={reply._id}
+                comment={reply}
+                postId={postId}
+                onReply={onReply}
+                depth={depth + 1}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

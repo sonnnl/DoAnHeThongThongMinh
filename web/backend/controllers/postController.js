@@ -199,13 +199,13 @@ exports.getPosts = async (req, res, next) => {
       const postIds = posts.map((p) => p._id);
       const votes = await Vote.find({
         user: req.user.id,
-        contentType: "Post",
-        contentId: { $in: postIds },
+        targetType: "Post",
+        targetId: { $in: postIds },
       }).lean();
 
       const voteMap = {};
       votes.forEach((v) => {
-        voteMap[v.contentId.toString()] = v.voteType;
+        voteMap[v.targetId.toString()] = v.voteType;
       });
 
       posts.forEach((post) => {
@@ -261,8 +261,8 @@ exports.getPost = async (req, res, next) => {
     if (req.user) {
       const vote = await Vote.findOne({
         user: req.user.id,
-        contentType: "Post",
-        contentId: post._id,
+        targetType: "Post",
+        targetId: post._id,
       });
 
       const saved = await SavedPost.findOne({
@@ -309,8 +309,8 @@ exports.getPostById = async (req, res, next) => {
     if (req.user) {
       const vote = await Vote.findOne({
         user: req.user.id,
-        contentType: "Post",
-        contentId: post._id,
+        targetType: "Post",
+        targetId: post._id,
       });
 
       const saved = await SavedPost.findOne({
