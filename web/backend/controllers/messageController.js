@@ -26,32 +26,34 @@ exports.getConversations = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const conversations = await Conversation.find({
-      participants: req.user.id,
+      "participants.user": req.user.id,
+      isDeleted: false,
     })
-      .sort({ lastMessageAt: -1 })
+      .sort({ lastActivityAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("participants", "username avatar badge")
-      .populate("lastMessage")
+      .populate("participants.user", "username avatar badge")
+      .populate("lastMessage.sender", "username avatar")
       .lean();
 
     // Tính unread count cho mỗi conversation
     for (let conv of conversations) {
-      const unreadCount = await DirectMessage.countDocuments({
-        conversation: conv._id,
-        sender: { $ne: req.user.id },
-        isRead: false,
-      });
-      conv.unreadCount = unreadCount;
-
-      // Lấy other participant
-      conv.otherParticipant = conv.participants.find(
-        (p) => p._id.toString() !== req.user.id
+      const participant = conv.participants.find(
+        (p) => p.user._id.toString() === req.user.id
       );
+      conv.unreadCount = participant ? participant.unreadCount : 0;
+
+      // Lấy other participant (cho direct chat)
+      if (conv.type === "direct") {
+        conv.otherParticipant = conv.participants.find(
+          (p) => p.user._id.toString() !== req.user.id
+        )?.user;
+      }
     }
 
     const total = await Conversation.countDocuments({
-      participants: req.user.id,
+      "participants.user": req.user.id,
+      isDeleted: false,
     });
 
     res.status(200).json({
@@ -111,21 +113,15 @@ exports.getOrCreateConversation = async (req, res, next) => {
       });
     }
 
-    // Tìm conversation hiện có
-    let conversation = await Conversation.findOne({
-      participants: { $all: [req.user.id, userId] },
-    })
-      .populate("participants", "username avatar badge")
-      .populate("lastMessage");
+    // Tìm conversation hiện có bằng static method
+    let conversation = await Conversation.findOrCreateDirectConversation(
+      req.user.id,
+      userId
+    );
 
-    // Nếu chưa có, tạo mới
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [req.user.id, userId],
-      });
-
-      await conversation.populate("participants", "username avatar badge");
-    }
+    // Populate thông tin
+    await conversation.populate("participants.user", "username avatar badge");
+    await conversation.populate("lastMessage.sender", "username avatar");
 
     res.status(200).json({
       success: true,
@@ -154,7 +150,11 @@ exports.getMessages = async (req, res, next) => {
       });
     }
 
-    if (!conversation.participants.includes(req.user.id)) {
+    // ✅ FIX: Check participant đúng cách
+    const isParticipant = conversation.participants.some(
+      (p) => p.user.toString() === req.user.id
+    );
+    if (!isParticipant) {
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền xem conversation này",
@@ -172,7 +172,7 @@ exports.getMessages = async (req, res, next) => {
       conversation: conversationId,
     });
 
-    // Đánh dấu messages là đã đọc
+    // ✅ FIX: Đánh dấu messages là đã đọc và reset unread count
     await DirectMessage.updateMany(
       {
         conversation: conversationId,
@@ -181,6 +181,9 @@ exports.getMessages = async (req, res, next) => {
       },
       { isRead: true, readAt: Date.now() }
     );
+
+    // Reset unread count trong conversation
+    await conversation.markAsRead(req.user.id);
 
     res.status(200).json({
       success: true,
@@ -204,7 +207,8 @@ exports.getMessages = async (req, res, next) => {
 // @access  Private
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { conversationId, content, mediaUrl } = req.body;
+    const { conversationId, content, mediaUrl, mediaData } = req.body;
+    // ✅ mediaData: { url, publicId, format, resourceType, size, ... } từ upload API
 
     // Kiểm tra conversation
     const conversation = await Conversation.findById(conversationId);
@@ -215,29 +219,75 @@ exports.sendMessage = async (req, res, next) => {
       });
     }
 
-    if (!conversation.participants.includes(req.user.id)) {
+    // ✅ FIX: Check participant đúng cách
+    const isParticipant = conversation.participants.some(
+      (p) => p.user.toString() === req.user.id
+    );
+    if (!isParticipant) {
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền gửi tin nhắn trong conversation này",
       });
     }
 
-    // Tạo message
-    const message = await DirectMessage.create({
+    // ✅ FIX: Tạo message với attachments nếu có media
+    const messageData = {
       conversation: conversationId,
       sender: req.user.id,
       content,
-      mediaUrl: mediaUrl || null,
-    });
+    };
 
-    // Update conversation
-    conversation.lastMessage = message._id;
-    conversation.lastMessageAt = Date.now();
-    await conversation.save();
+    // Thêm media vào attachments nếu có (từ mediaData hoặc mediaUrl fallback)
+    if (mediaData || mediaUrl) {
+      const attachment = mediaData 
+        ? {
+            type: mediaData.resourceType === 'video' ? 'file' : 'image',
+            url: mediaData.url,
+            publicId: mediaData.publicId,
+            filename: mediaData.filename || null,
+            size: mediaData.size || mediaData.bytes || null,
+            mimeType: mediaData.mimeType || mediaData.format || null,
+          }
+        : {
+            // Fallback: nếu chỉ có mediaUrl (backward compatible)
+            type: (mediaUrl.includes('/video/') || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl)) ? 'file' : 'image',
+            url: mediaUrl,
+          };
+
+      messageData.attachments = [attachment];
+
+      // Tự động set message type
+      const isVideo = (mediaData?.resourceType === 'video') || 
+                      mediaUrl?.includes('/video/') || 
+                      /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaData?.url || mediaUrl || '');
+      messageData.type = isVideo ? "file" : "image";
+    }
+
+    const message = await DirectMessage.create(messageData);
+
+    // ✅ FIX: Update conversation bằng method
+    await conversation.updateLastMessage(message);
+    await conversation.incrementUnreadCount(req.user.id);
 
     await message.populate("sender", "username avatar badge");
 
-    // TODO: Send real-time message qua socket.io
+    // ✅ Emit real-time events qua Socket.IO
+    const io = req.app.get("io");
+    if (io) {
+      // Emit vào room của conversation
+      io.to(`conversation:${conversationId}`).emit("message:new", {
+        conversationId,
+        message,
+      });
+
+      // Emit cho từng participant (để cập nhật sidebar/unread)
+      conversation.participants.forEach((p) => {
+        io.to(`user:${p.user.toString()}`).emit("conversation:update", {
+          conversationId,
+          lastMessage: message,
+        });
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -286,27 +336,195 @@ exports.deleteMessage = async (req, res, next) => {
   }
 };
 
+// @desc    Đánh dấu conversation là đã đọc
+// @route   PUT /api/messages/conversations/:conversationId/mark-read
+// @access  Private
+exports.markConversationAsRead = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy conversation",
+      });
+    }
+
+    // Kiểm tra user có trong conversation không
+    const isParticipant = conversation.participants.some(
+      (p) => p.user.toString() === req.user.id
+    );
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền truy cập conversation này",
+      });
+    }
+
+    // Đánh dấu là đã đọc
+    await conversation.markAsRead(req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Đã đánh dấu là đã đọc",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Tạo group conversation
+// @route   POST /api/messages/conversations/group
+// @access  Private
+exports.createGroupConversation = async (req, res, next) => {
+  try {
+    const { name, avatar, participantIds } = req.body;
+
+    // ✨ Validation: Group phải có ít nhất 2 người
+    if (!participantIds || participantIds.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Group conversation phải có ít nhất 2 người",
+      });
+    }
+
+    // ✨ Đảm bảo creator có trong participants
+    const participantSet = new Set(
+      participantIds.map((id) => id.toString())
+    );
+    if (!participantSet.has(req.user.id)) {
+      participantIds.push(req.user.id);
+    }
+
+    // Tạo group conversation
+    const conversation = await Conversation.createGroupConversation({
+      name,
+      avatar,
+      participants: participantIds,
+      createdBy: req.user.id,
+    });
+
+    await conversation.populate("participants.user", "username avatar badge");
+    await conversation.populate("admins", "username avatar");
+    await conversation.populate("createdBy", "username avatar");
+
+    res.status(201).json({
+      success: true,
+      message: "Tạo nhóm chat thành công",
+      data: conversation,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Thêm người vào group
+// @route   POST /api/messages/conversations/:conversationId/participants
+// @access  Private
+exports.addParticipant = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const { userId } = req.body;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy conversation",
+      });
+    }
+
+    // Chỉ admin mới có thể thêm người vào group
+    if (conversation.type === "group") {
+      const isAdmin = conversation.admins.some(
+        (adminId) => adminId.toString() === req.user.id
+      );
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: "Chỉ admin mới có thể thêm người vào nhóm",
+        });
+      }
+    }
+
+    await conversation.addParticipant(userId, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Đã thêm người vào nhóm",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Xóa người khỏi group
+// @route   DELETE /api/messages/conversations/:conversationId/participants/:userId
+// @access  Private
+exports.removeParticipant = async (req, res, next) => {
+  try {
+    const { conversationId, userId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy conversation",
+      });
+    }
+
+    // Chỉ admin hoặc chính người đó mới có thể xóa
+    if (conversation.type === "group") {
+      const isAdmin = conversation.admins.some(
+        (adminId) => adminId.toString() === req.user.id
+      );
+      const isSelf = userId === req.user.id;
+
+      if (!isAdmin && !isSelf) {
+        return res.status(403).json({
+          success: false,
+          message: "Bạn không có quyền xóa người này khỏi nhóm",
+        });
+      }
+    }
+
+    await conversation.removeParticipant(userId, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Đã xóa người khỏi nhóm",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Lấy unread messages count
 // @route   GET /api/messages/unread-count
 // @access  Private
 exports.getUnreadCount = async (req, res, next) => {
   try {
-    // Lấy tất cả conversations của user
+    // ✅ FIX: Lấy tổng unread count từ conversations
     const conversations = await Conversation.find({
-      participants: req.user.id,
-    }).select("_id");
+      "participants.user": req.user.id,
+      isDeleted: false,
+    }).lean();
 
-    const conversationIds = conversations.map((c) => c._id);
-
-    const count = await DirectMessage.countDocuments({
-      conversation: { $in: conversationIds },
-      sender: { $ne: req.user.id },
-      isRead: false,
-    });
+    // Tính tổng unread count từ participant data
+    let totalUnread = 0;
+    for (const conv of conversations) {
+      const participant = conv.participants.find(
+        (p) => p.user.toString() === req.user.id
+      );
+      if (participant) {
+        totalUnread += participant.unreadCount || 0;
+      }
+    }
 
     res.status(200).json({
       success: true,
-      data: { count },
+      data: { count: totalUnread },
     });
   } catch (error) {
     next(error);

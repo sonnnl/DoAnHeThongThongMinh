@@ -4,19 +4,22 @@
  */
 
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "react-query";
-import { usersAPI } from "../../services/api";
+import { usersAPI, messagesAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import Loading from "../../components/UI/Loading";
 import PostCard from "../../components/Post/PostCard";
-import { FiUser, FiCalendar, FiMapPin, FiLink } from "react-icons/fi";
+import { FiUser, FiCalendar, FiMapPin, FiLink, FiMessageCircle } from "react-icons/fi";
 import { formatDate, getBadgeClass } from "../../utils/helpers";
+import toast from "react-hot-toast";
 
 const Profile = () => {
   const { username } = useParams();
   const { user: currentUser } = useAuthStore();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("posts");
+  const [isMessaging, setIsMessaging] = useState(false);
 
   // Fetch user profile
   const { data: profileData, isLoading } = useQuery(
@@ -212,11 +215,71 @@ const Profile = () => {
               </div>
 
               {/* Actions */}
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <div className="mt-4">
                   <Link to="/settings" className="btn btn-primary">
                     Chỉnh sửa profile
                   </Link>
+                </div>
+              ) : (
+                <div className="mt-4 flex gap-3">
+                  <button
+                    className="btn btn-primary gap-2"
+                    onClick={async () => {
+                      if (isMessaging) return;
+                      setIsMessaging(true);
+                      try {
+                        // Tìm hoặc tạo conversation
+                        const response = await messagesAPI.getOrCreateConversation(
+                          userId
+                        );
+                        
+                        // ✅ FIX: Log để debug
+                        console.log("Response từ API:", response);
+                        
+                        // ✅ FIX: Kiểm tra response structure
+                        // Axios interceptor đã unwrap response.data, nên response = { success, data }
+                        if (!response) {
+                          throw new Error("Response trống");
+                        }
+                        
+                        // Response có thể là { success, data } hoặc trực tiếp là data
+                        const conversation = response.data || response;
+                        
+                        if (!conversation) {
+                          throw new Error("Conversation không tồn tại trong response");
+                        }
+                        
+                        // ✅ FIX: Kiểm tra conversation có _id không
+                        const conversationId = conversation._id || conversation.id;
+                        if (!conversationId) {
+                          console.error("Conversation object:", conversation);
+                          throw new Error("Conversation không có _id");
+                        }
+                        
+                        // Navigate đến trang messages với conversationId
+                        navigate(`/messages?conversation=${conversationId}`);
+                      } catch (error) {
+                        console.error("Lỗi tạo conversation:", error);
+                        console.error("Error details:", {
+                          message: error.message,
+                          response: error.response,
+                          stack: error.stack,
+                        });
+                        toast.error(
+                          error.response?.data?.message ||
+                            error.message ||
+                            "Không thể bắt đầu cuộc trò chuyện"
+                        );
+                      } finally {
+                        setIsMessaging(false);
+                      }
+                    }}
+                    disabled={isMessaging}
+                  >
+                    <FiMessageCircle />
+                    {isMessaging ? "Đang xử lý..." : "Nhắn tin"}
+                  </button>
                 </div>
               )}
             </div>

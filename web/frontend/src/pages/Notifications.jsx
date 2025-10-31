@@ -162,7 +162,16 @@ const Notifications = () => {
                     {/* Link */}
                     {notification.link && (
                       <Link
-                        to={notification.link}
+                        to={
+                          // ✅ FIX: Sửa link cho tin nhắn từ /messages/{userId} thành /messages?conversation={conversationId}
+                          notification.link.startsWith("/messages/") &&
+                          !notification.link.includes("?")
+                            ? `/messages?conversation=${notification.link.replace(
+                                "/messages/",
+                                ""
+                              )}`
+                            : notification.link
+                        }
                         className="text-sm text-primary hover:underline"
                         onClick={() =>
                           markAsReadMutation.mutate(notification._id)

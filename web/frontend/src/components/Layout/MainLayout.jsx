@@ -9,21 +9,21 @@ import Sidebar from "../Sidebar/Sidebar";
 
 const MainLayout = () => {
   return (
-    <div className="min-h-screen bg-base-100">
+    <div className="min-h-screen bg-base-100 flex flex-col">
       <Navbar />
 
-      <div className="bg-base-200/50">
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="flex-1 bg-base-200/50">
+        <div className="container mx-auto max-w-7xl px-4 py-6 h-full">
+          <div className="grid h-full grid-cols-1 gap-6 lg:grid-cols-12">
             {/* Sidebar */}
             <aside className="hidden lg:block lg:col-span-3">
-              <div className="sticky top-24">
+              <div className="sticky top-24 space-y-6">
                 <Sidebar />
               </div>
             </aside>
 
             {/* Main Content */}
-            <main className="lg:col-span-9 min-h-[70vh]">
+            <main className="lg:col-span-9 min-h-[70vh] space-y-6">
               <Outlet />
             </main>
           </div>

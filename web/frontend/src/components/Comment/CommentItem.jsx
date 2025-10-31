@@ -29,16 +29,21 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [voteError, setVoteError] = useState("");
-  const [editContent, setEditContent] = useState(comment.content);
+  const [editContent, setEditContent] = useState(comment.content || "");
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
   const [repliesRefreshing, setRepliesRefreshing] = useState(false);
+  const [localRepliesCount, setLocalRepliesCount] = useState(
+    comment.repliesCount || 0
+  );
   const textareaRef = useRef(null);
 
-  const isAuthor = user?._id === comment.author._id;
+  const isAuthor = user?._id && comment?.author?._id
+    ? user._id === comment.author._id
+    : false;
   const canReply = true; // Cho phép reply ở mọi bình luận; backend gom về root để hiển thị 2 cấp
   console.log(comment);
   // Vote mutation
@@ -150,20 +155,30 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
         parentComment: comment._id,
       }),
     {
-      onSuccess: () => {
+      onSuccess: (res) => {
         toast.success("Trả lời thành công!");
         setReplyContent("");
         setShowReplyForm(false);
         const rootId = depth === 0 ? comment._id : comment.parentComment;
         if (depth === 0) {
-          comment.repliesCount = (comment.repliesCount || 0) + 1;
+          setLocalRepliesCount((count) => count + 1);
           if (showReplies) {
-            fetchReplies(rootId);
+            fetchReplies(rootId).catch((error) => {
+              toast.error(
+                error?.response?.data?.message ||
+                  "Không thể tải trả lời mới, thử lại sau"
+              );
+            });
           }
         } else {
           window.dispatchEvent(
             new CustomEvent("refetch-replies", { detail: { rootId } })
           );
+        }
+        if (typeof onReply === "function") {
+          const payload =
+            res?.data?.data?.comment || res?.data?.comment || null;
+          onReply(payload);
         }
         queryClient.invalidateQueries(["comments", postId]);
       },
@@ -217,6 +232,16 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     }
   }, [showReplyForm]);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setEditContent(comment.content || "");
+    }
+  }, [comment.content, isEditing]);
+
+  useEffect(() => {
+    setLocalRepliesCount(comment.repliesCount || 0);
+  }, [comment.repliesCount]);
+
   const fetchReplies = async (rootId) => {
     if (replies.length > 0) setRepliesRefreshing(true);
     else setRepliesLoading(true);
@@ -231,9 +256,18 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
 
   const handleToggleReplies = async () => {
     if (!showReplies) {
-      await fetchReplies(comment._id);
+      setShowReplies(true);
+      try {
+        await fetchReplies(comment._id);
+      } catch (error) {
+        toast.error(
+          error?.response?.data?.message || "Không thể tải danh sách trả lời"
+        );
+        setShowReplies(false);
+      }
+      return;
     }
-    setShowReplies((prev) => !prev);
+    setShowReplies(false);
   };
 
   useEffect(() => {
@@ -242,7 +276,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
       const rootId = e.detail?.rootId;
       if (rootId === comment._id) {
         setShowReplies(true);
-        fetchReplies(rootId);
+        fetchReplies(rootId).catch((error) => {
+          console.error("Failed to refresh replies", error);
+        });
       }
     };
     window.addEventListener("refetch-replies", handler);
@@ -434,7 +470,10 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   <>
                     <button
                       className="btn btn-ghost btn-xs gap-1"
-                      onClick={() => setIsEditing(true)}
+                      onClick={() => {
+                        setEditContent(comment.content || "");
+                        setIsEditing(true);
+                      }}
                     >
                       <FiEdit />
                       Sửa
@@ -454,12 +493,12 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                     Report
                   </button>
                 )}
-                {comment.repliesCount > 0 && (
+                {localRepliesCount > 0 && (
                   <button
                     className="btn btn-ghost btn-xs"
                     onClick={handleToggleReplies}
                   >
-                    {showReplies ? "Ẩn" : "Xem"} {comment.repliesCount} trả lời
+                    {showReplies ? "Ẩn" : "Xem"} {localRepliesCount} trả lời
                     {showReplies && repliesRefreshing && (
                       <span className="loading loading-dots loading-xs ml-2" />
                     )}

@@ -213,7 +213,8 @@ directMessageSchema.post("save", async function (doc) {
         message: `Bạn có tin nhắn mới`,
         targetType: "DirectMessage",
         targetId: doc._id,
-        link: `/messages/${conversation._id}`,
+        // ✅ FIX: Link đúng format cho messages page với query param
+        link: `/messages?conversation=${conversation._id}`,
       }));
 
       await Notification.insertMany(notifications);

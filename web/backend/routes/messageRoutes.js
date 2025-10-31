@@ -40,6 +40,42 @@ router.get(
   messageController.getMessages
 );
 
+// @route   PUT /api/messages/conversations/:conversationId/mark-read
+// @desc    Đánh dấu conversation là đã đọc
+// @access  Private
+router.put(
+  "/conversations/:conversationId/mark-read",
+  authenticate,
+  messageController.markConversationAsRead
+);
+
+// @route   POST /api/messages/conversations/group
+// @desc    Tạo group conversation
+// @access  Private
+router.post(
+  "/conversations/group",
+  authenticate,
+  messageController.createGroupConversation
+);
+
+// @route   POST /api/messages/conversations/:conversationId/participants
+// @desc    Thêm người vào group
+// @access  Private
+router.post(
+  "/conversations/:conversationId/participants",
+  authenticate,
+  messageController.addParticipant
+);
+
+// @route   DELETE /api/messages/conversations/:conversationId/participants/:userId
+// @desc    Xóa người khỏi group
+// @access  Private
+router.delete(
+  "/conversations/:conversationId/participants/:userId",
+  authenticate,
+  messageController.removeParticipant
+);
+
 // @route   POST /api/messages
 // @desc    Gửi message
 // @access  Private

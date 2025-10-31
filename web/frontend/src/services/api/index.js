@@ -13,3 +13,4 @@ export { default as notificationsAPI } from "./notifications";
 export { default as messagesAPI } from "./messages";
 export { default as uploadAPI } from "./upload";
 export { default as reportsAPI } from "./reports";
+export { default as socket } from "../../socket";

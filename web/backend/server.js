@@ -113,12 +113,53 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// Start server with Socket.IO
+const http = require("http");
+const { Server } = require("socket.io");
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+// Create HTTP server and bind express app
+const server = http.createServer(app);
+
+// Init Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
+  },
+});
+
+// Attach io to app for controllers to use
+app.set("io", io);
+
+// Socket.IO events
+io.on("connection", (socket) => {
+  // Join personal room by userId (if provided)
+  socket.on("auth:identify", (userId) => {
+    if (userId) {
+      socket.join(`user:${userId}`);
+    }
+  });
+
+  // Join a conversation room
+  socket.on("conversation:join", (conversationId) => {
+    if (conversationId) {
+      socket.join(`conversation:${conversationId}`);
+    }
+  });
+
+  // Leave a conversation room
+  socket.on("conversation:leave", (conversationId) => {
+    if (conversationId) {
+      socket.leave(`conversation:${conversationId}`);
+    }
+  });
+});
+
+server.listen(PORT, () => {
   console.log(
-    `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
+    `🚀 Server + Socket.IO running in ${process.env.NODE_ENV} mode on port ${PORT}`
   );
 });
 

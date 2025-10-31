@@ -9,7 +9,34 @@ import { commentsAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import CommentItem from "./CommentItem";
-import Loading from "../UI/Loading";
+
+const CommentSkeleton = () => (
+  <div className="card bg-base-100 shadow-sm animate-pulse">
+    <div className="card-body space-y-4">
+      <div className="flex items-start gap-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-base-300" />
+          <div className="h-10 w-4 rounded bg-base-300" />
+          <div className="h-8 w-4 rounded bg-base-300" />
+        </div>
+        <div className="flex-1 space-y-3">
+          <div className="h-3 w-32 rounded bg-base-300" />
+          <div className="h-3 w-24 rounded bg-base-300" />
+          <div className="space-y-2">
+            <div className="h-3 w-full rounded bg-base-300" />
+            <div className="h-3 w-3/4 rounded bg-base-300" />
+            <div className="h-3 w-2/3 rounded bg-base-300" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-6 w-16 rounded bg-base-300" />
+            <div className="h-6 w-16 rounded bg-base-300" />
+            <div className="h-6 w-16 rounded bg-base-300" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const CommentList = ({ postId }) => {
   const { isAuthenticated } = useAuthStore();
@@ -67,6 +94,8 @@ const CommentList = ({ postId }) => {
   };
 
   const comments = data?.data?.comments || [];
+  const commentsCount =
+    data?.data?.pagination?.total ?? data?.data?.total ?? comments.length;
 
   return (
     <div className="space-y-6">
@@ -122,7 +151,14 @@ const CommentList = ({ postId }) => {
 
       {/* Sort options */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{comments.length} bình luận</h3>
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          {isLoading && (
+            <span className="loading loading-xs loading-dots text-primary" />
+          )}
+          <span>
+            {isLoading ? "Đang tải bình luận..." : `${commentsCount} bình luận`}
+          </span>
+        </h3>
         <div className="tabs tabs-boxed">
           <button
             className={`tab ${sort === "best" ? "tab-active" : ""}`}
@@ -147,7 +183,11 @@ const CommentList = ({ postId }) => {
 
       {/* Comments list */}
       {isLoading ? (
-        <Loading />
+        <div className="space-y-4">
+          <CommentSkeleton />
+          <CommentSkeleton />
+          <CommentSkeleton />
+        </div>
       ) : queryError ? (
         <div className="alert alert-error">Lỗi khi tải bình luận</div>
       ) : comments.length === 0 ? (
