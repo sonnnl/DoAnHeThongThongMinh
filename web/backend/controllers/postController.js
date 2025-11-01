@@ -194,9 +194,11 @@ exports.getPosts = async (req, res, next) => {
 
     const total = await Post.countDocuments(query);
 
-    // Nếu user đang đăng nhập, lấy vote status
+    // Nếu user đang đăng nhập, lấy vote status và saved status
     if (req.user) {
       const postIds = posts.map((p) => p._id);
+      
+      // Lấy vote status
       const votes = await Vote.find({
         user: req.user.id,
         targetType: "Post",
@@ -208,8 +210,20 @@ exports.getPosts = async (req, res, next) => {
         voteMap[v.targetId.toString()] = v.voteType;
       });
 
+      // Lấy saved status
+      const savedPosts = await SavedPost.find({
+        user: req.user.id,
+        post: { $in: postIds },
+      }).lean();
+
+      const savedMap = {};
+      savedPosts.forEach((sp) => {
+        savedMap[sp.post.toString()] = true;
+      });
+
       posts.forEach((post) => {
         post.userVote = voteMap[post._id.toString()] || null;
+        post.isSaved = !!savedMap[post._id.toString()];
       });
     }
 
@@ -522,6 +536,14 @@ exports.savePost = async (req, res, next) => {
       });
     }
 
+    // Không cho phép lưu bài viết của chính mình
+    if (post.author.toString() === req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không thể lưu bài viết của chính mình",
+      });
+    }
+
     // Kiểm tra đã save chưa
     const existing = await SavedPost.findOne({
       user: req.user.id,
@@ -601,8 +623,16 @@ exports.getSavedPosts = async (req, res, next) => {
     const total = await SavedPost.countDocuments({ user: req.user.id });
 
     const posts = savedPosts
-      .map((sp) => sp.post)
-      .filter((p) => p && !p.isDeleted);
+      .map((sp) => {
+        const post = sp.post;
+        if (post && !post.isDeleted) {
+          // Tất cả posts trong savedPosts đều đã được lưu
+          post.isSaved = true;
+          return post;
+        }
+        return null;
+      })
+      .filter((p) => p !== null);
 
     res.status(200).json({
       success: true,

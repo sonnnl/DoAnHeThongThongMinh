@@ -3,12 +3,13 @@
  * MỤC ĐÍCH: List comments với form tạo comment mới
  */
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { commentsAPI } from "../../services/api";
+import { commentsAPI, uploadAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import CommentItem from "./CommentItem";
+import { FiImage, FiX } from "react-icons/fi";
 
 const CommentSkeleton = () => (
   <div className="card bg-base-100 shadow-sm animate-pulse">
@@ -44,6 +45,9 @@ const CommentList = ({ postId }) => {
   const [newComment, setNewComment] = useState("");
   const [sort, setSort] = useState("best");
   const [error, setError] = useState("");
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Fetch comments
   const {
@@ -58,14 +62,70 @@ const CommentList = ({ postId }) => {
     }
   );
 
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Validate file types (chỉ ảnh)
+    const imageTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    const invalidFiles = files.filter(file => !imageTypes.includes(file.type));
+    if (invalidFiles.length > 0) {
+      toast.error("Chỉ hỗ trợ file ảnh (JPEG, PNG, GIF, WebP)");
+      return;
+    }
+
+    // Validate file size (max 5MB per image, max 3 images)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    if (oversizedFiles.length > 0) {
+      toast.error("Mỗi ảnh không được vượt quá 5MB");
+      return;
+    }
+
+    if (uploadedImages.length + files.length > 3) {
+      toast.error("Tối đa 3 ảnh mỗi bình luận");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = files.map(file => 
+        uploadAPI.uploadFile(file, "comments")
+      );
+      const results = await Promise.all(uploadPromises);
+
+      const newImages = results.map((result) => ({
+        url: result?.data?.url || result?.url,
+        publicId: result?.data?.publicId || result?.publicId,
+        size: result?.data?.size || result?.size || 0,
+      }));
+
+      setUploadedImages([...uploadedImages, ...newImages]);
+      toast.success("Upload ảnh thành công!");
+    } catch (error) {
+      toast.error("Upload ảnh thất bại");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveImage = (index) => {
+    setUploadedImages(uploadedImages.filter((_, i) => i !== index));
+  };
+
   // Create comment mutation
   const createCommentMutation = useMutation(
-    (content) => commentsAPI.createComment({ postId, content }),
+    (data) => commentsAPI.createComment({ postId, ...data }),
     {
       onSuccess: () => {
         toast.success("Bình luận thành công!");
         setNewComment("");
         setError("");
+        setUploadedImages([]);
         queryClient.invalidateQueries(["comments", postId]);
       },
       onError: (error) => {
@@ -85,12 +145,15 @@ const CommentList = ({ postId }) => {
       return;
     }
 
-    if (!newComment.trim()) {
-      toast.error("Nội dung không được để trống");
+    if (!newComment.trim() && uploadedImages.length === 0) {
+      toast.error("Vui lòng nhập nội dung hoặc đính kèm ảnh");
       return;
     }
 
-    createCommentMutation.mutate(newComment);
+    createCommentMutation.mutate({
+      content: newComment.trim() || "",
+      images: uploadedImages,
+    });
   };
 
   const comments = data?.data?.comments || [];
@@ -117,6 +180,51 @@ const CommentList = ({ postId }) => {
                 }}
                 rows={4}
               ></textarea>
+              
+              {/* Image upload */}
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading || createCommentMutation.isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-ghost btn-sm gap-2"
+                  disabled={isUploading || createCommentMutation.isLoading || uploadedImages.length >= 3}
+                >
+                  <FiImage />
+                  Đính kèm ảnh {uploadedImages.length > 0 && `(${uploadedImages.length}/3)`}
+                </button>
+
+                {/* Preview uploaded images */}
+                {uploadedImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {uploadedImages.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img.url}
+                          alt={`Preview ${index + 1}`}
+                          className="w-20 h-20 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <FiX />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {error && (
                 <div className="alert alert-error py-2">
                   <svg
@@ -138,9 +246,13 @@ const CommentList = ({ postId }) => {
               <button
                 type="submit"
                 className={`btn btn-primary ${
-                  createCommentMutation.isLoading ? "loading" : ""
+                  createCommentMutation.isLoading || isUploading ? "loading" : ""
                 }`}
-                disabled={createCommentMutation.isLoading}
+                disabled={
+                  createCommentMutation.isLoading ||
+                  isUploading ||
+                  !newComment.trim()
+                }
               >
                 Gửi bình luận
               </button>

@@ -3,7 +3,8 @@
  * MỤC ĐÍCH: Trang cài đặt user
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation } from "react-query";
 import { usersAPI, uploadAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
@@ -11,11 +12,13 @@ import toast from "react-hot-toast";
 import { FiUser, FiLock, FiSettings as FiSettingsIcon } from "react-icons/fi";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState("profile");
 
   // Profile form
   const [profileData, setProfileData] = useState({
+    username: user?.username || "",
     bio: user?.bio || "",
     location: user?.location || "",
     website: user?.website || "",
@@ -38,12 +41,35 @@ const Settings = () => {
     showOnlineStatus: user?.preferences?.showOnlineStatus ?? true,
   });
 
+  // Sync profileData với user khi user thay đổi
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        username: user.username || "",
+        bio: user.bio || "",
+        location: user.location || "",
+        website: user.website || "",
+      });
+    }
+  }, [user]);
+
   // Update profile mutation
   const updateProfileMutation = useMutation(usersAPI.updateProfile, {
-    onSuccess: (data) => {
-      // data đã được unwrap 2 lần
-      setUser(data);
+    onSuccess: (response) => {
+      // response có thể là { success, message, data } hoặc data trực tiếp
+      const updatedUser = response?.data || response;
+      const oldUsername = user?.username;
+      const newUsername = updatedUser?.username;
+      
+      setUser(updatedUser);
       toast.success("Cập nhật profile thành công!");
+      
+      // Nếu đổi username, redirect đến profile mới
+      if (oldUsername && newUsername && oldUsername !== newUsername) {
+        setTimeout(() => {
+          navigate(`/u/${newUsername}/settings`, { replace: true });
+        }, 500);
+      }
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || "Cập nhật thất bại");
@@ -165,6 +191,32 @@ const Settings = () => {
               {activeTab === "profile" && (
                 <form onSubmit={handleProfileSubmit} className="space-y-6">
                   <h2 className="text-2xl font-bold">Thông tin cá nhân</h2>
+
+                  {/* Username */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-semibold">Username</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered"
+                      placeholder="username"
+                      value={profileData.username}
+                      onChange={(e) => {
+                        const value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                        setProfileData({ ...profileData, username: value });
+                      }}
+                      minLength={3}
+                      maxLength={30}
+                      pattern="[a-zA-Z0-9_]+"
+                      title="Username chỉ được chứa chữ cái, số và dấu gạch dưới"
+                    />
+                    <label className="label">
+                      <span className="label-text-alt text-base-content/60">
+                        Username phải từ 3-30 ký tự, chỉ chứa chữ cái, số và dấu gạch dưới
+                      </span>
+                    </label>
+                  </div>
 
                   {/* Avatar */}
                   <div className="form-control">

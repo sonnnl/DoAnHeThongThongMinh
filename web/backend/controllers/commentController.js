@@ -26,7 +26,7 @@ const Vote = require("../models/Vote");
 // @access  Private
 exports.createComment = async (req, res, next) => {
   try {
-    const { postId, content, parentComment, mediaUrl } = req.body;
+    const { postId, content, parentComment, images } = req.body;
 
     // Kiểm tra user có quyền comment không
     const user = await User.findById(req.user.id);
@@ -102,7 +102,7 @@ exports.createComment = async (req, res, next) => {
       parentComment: rootParentId || parentComment || null,
       replyTo: replyToUser || null,
       depth,
-      mediaUrl: mediaUrl || null,
+      images: images || [], // Array of { url, publicId, size }
       emotion: {
         label: emotion,
         confidence: aiAnalysis.emotionScore || 0,

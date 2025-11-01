@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "react-query";
-import { commentsAPI, votesAPI } from "../../services/api";
+import { commentsAPI, votesAPI, uploadAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import {
@@ -16,6 +16,8 @@ import {
   FiEdit,
   FiTrash2,
   FiFlag,
+  FiImage,
+  FiX,
 } from "react-icons/fi";
 import {
   timeAgo,
@@ -32,6 +34,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const [editContent, setEditContent] = useState(comment.content || "");
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState("");
+  const [replyImages, setReplyImages] = useState([]);
+  const [isReplyUploading, setIsReplyUploading] = useState(false);
+  const replyFileInputRef = useRef(null);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
@@ -39,6 +44,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   const [localRepliesCount, setLocalRepliesCount] = useState(
     comment.repliesCount || 0
   );
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const textareaRef = useRef(null);
 
   const isAuthor = user?._id && comment?.author?._id
@@ -146,18 +152,73 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     }
   );
 
+  // Handle reply file upload
+  const handleReplyFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const imageTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    const invalidFiles = files.filter(file => !imageTypes.includes(file.type));
+    if (invalidFiles.length > 0) {
+      toast.error("Chỉ hỗ trợ file ảnh (JPEG, PNG, GIF, WebP)");
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    if (oversizedFiles.length > 0) {
+      toast.error("Mỗi ảnh không được vượt quá 5MB");
+      return;
+    }
+
+    if (replyImages.length + files.length > 3) {
+      toast.error("Tối đa 3 ảnh mỗi trả lời");
+      return;
+    }
+
+    setIsReplyUploading(true);
+    try {
+      const uploadPromises = files.map(file => 
+        uploadAPI.uploadFile(file, "comments")
+      );
+      const results = await Promise.all(uploadPromises);
+
+      const newImages = results.map((result) => ({
+        url: result?.data?.url || result?.url,
+        publicId: result?.data?.publicId || result?.publicId,
+        size: result?.data?.size || result?.size || 0,
+      }));
+
+      setReplyImages([...replyImages, ...newImages]);
+      toast.success("Upload ảnh thành công!");
+    } catch (error) {
+      toast.error("Upload ảnh thất bại");
+    } finally {
+      setIsReplyUploading(false);
+      if (replyFileInputRef.current) {
+        replyFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveReplyImage = (index) => {
+    setReplyImages(replyImages.filter((_, i) => i !== index));
+  };
+
   // Reply mutation
   const replyMutation = useMutation(
-    (content) =>
+    (data) =>
       commentsAPI.createComment({
         postId,
-        content,
+        content: data.content || "",
+        images: data.images || [],
         parentComment: comment._id,
       }),
     {
       onSuccess: (res) => {
         toast.success("Trả lời thành công!");
         setReplyContent("");
+        setReplyImages([]);
         setShowReplyForm(false);
         const rootId = depth === 0 ? comment._id : comment.parentComment;
         if (depth === 0) {
@@ -205,9 +266,12 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm("Bạn có chắc muốn xóa comment này?")) {
-      deleteMutation.mutate();
-    }
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    deleteMutation.mutate();
+    setShowDeleteModal(false);
   };
 
   const handleReply = () => {
@@ -215,11 +279,14 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
       toast.error("Vui lòng đăng nhập để reply");
       return;
     }
-    if (!replyContent.trim()) {
-      toast.error("Nội dung không được để trống");
+    if (!replyContent.trim() && replyImages.length === 0) {
+      toast.error("Vui lòng nhập nội dung hoặc đính kèm ảnh");
       return;
     }
-    replyMutation.mutate(replyContent);
+    replyMutation.mutate({
+      content: replyContent.trim() || "",
+      images: replyImages,
+    });
   };
 
   const openReply = () => {
@@ -270,20 +337,34 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     setShowReplies(false);
   };
 
+  // Listen for refetch-replies event (from child comments)
   useEffect(() => {
     if (depth !== 0) return;
     const handler = (e) => {
       const rootId = e.detail?.rootId;
       if (rootId === comment._id) {
         setShowReplies(true);
-        fetchReplies(rootId).catch((error) => {
-          console.error("Failed to refresh replies", error);
-        });
+        fetchReplies(rootId).catch(() => {});
       }
     };
     window.addEventListener("refetch-replies", handler);
     return () => window.removeEventListener("refetch-replies", handler);
   }, [depth, comment._id]);
+
+  // Listen for refresh-all-comments event (from PostDetail refresh button)
+  // Refetch replies cho TẤT CẢ comments depth = 0 đang mở replies để cập nhật mọi comment
+  useEffect(() => {
+    if (depth === 0) {
+      const handler = (e) => {
+        if (e.detail?.postId === postId && showReplies) {
+          // Chỉ refetch replies nếu đang mở để cập nhật
+          fetchReplies(comment._id).catch(() => {});
+        }
+      };
+      window.addEventListener("refresh-all-comments", handler);
+      return () => window.removeEventListener("refresh-all-comments", handler);
+    }
+  }, [depth, showReplies, comment._id, postId]);
 
   // Render content with @mention link to profile
   const renderContentWithMentions = (text) => {
@@ -447,9 +528,28 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                 </div>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap">
-                {renderContentWithMentions(comment.content)}
-              </p>
+              <div className="space-y-2">
+                {comment.content && (
+                  <p className="text-sm whitespace-pre-wrap">
+                    {renderContentWithMentions(comment.content)}
+                  </p>
+                )}
+                {/* Display images */}
+                {comment.images && comment.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {comment.images.map((img, index) => (
+                      <div key={index} className="rounded-lg overflow-hidden max-w-xs">
+                        <img
+                          src={img.url}
+                          alt={`Comment image ${index + 1}`}
+                          className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(img.url, "_blank")}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Actions */}
@@ -518,13 +618,62 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   rows={3}
                   ref={textareaRef}
                 ></textarea>
+
+                {/* Image upload */}
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    ref={replyFileInputRef}
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={handleReplyFileUpload}
+                    className="hidden"
+                    disabled={isReplyUploading || replyMutation.isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => replyFileInputRef.current?.click()}
+                    className="btn btn-ghost btn-xs gap-2"
+                    disabled={isReplyUploading || replyMutation.isLoading || replyImages.length >= 3}
+                  >
+                    <FiImage />
+                    Đính kèm ảnh {replyImages.length > 0 && `(${replyImages.length}/3)`}
+                  </button>
+
+                  {/* Preview uploaded images */}
+                  {replyImages.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {replyImages.map((img, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-16 h-16 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReplyImage(index)}
+                            className="absolute -top-1 -right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <FiX />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-2">
                   <button
                     className={`btn btn-primary btn-sm ${
-                      replyMutation.isLoading ? "loading" : ""
+                      replyMutation.isLoading || isReplyUploading ? "loading" : ""
                     }`}
                     onClick={handleReply}
-                    disabled={replyMutation.isLoading}
+                    disabled={
+                      replyMutation.isLoading ||
+                      isReplyUploading ||
+                      !replyContent.trim()
+                    }
                   >
                     Gửi
                   </button>
@@ -533,6 +682,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                     onClick={() => {
                       setShowReplyForm(false);
                       setReplyContent("");
+                      setReplyImages([]);
                     }}
                   >
                     Hủy
@@ -568,6 +718,44 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
           )}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <dialog
+        className={`modal ${showDeleteModal ? "modal-open" : ""}`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowDeleteModal(false);
+          }
+        }}
+      >
+        <div className="modal-box">
+          <h3 className="font-bold text-lg mb-4">Xác nhận xóa bình luận</h3>
+          <p className="py-4">
+            Bạn có chắc chắn muốn xóa bình luận này? Hành động này không thể hoàn tác.
+          </p>
+          <div className="modal-action">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deleteMutation.isLoading}
+            >
+              Hủy
+            </button>
+            <button
+              className={`btn btn-error ${
+                deleteMutation.isLoading ? "loading" : ""
+              }`}
+              onClick={confirmDelete}
+              disabled={deleteMutation.isLoading}
+            >
+              {deleteMutation.isLoading ? "Đang xóa..." : "Xóa"}
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button onClick={() => setShowDeleteModal(false)}>close</button>
+        </form>
+      </dialog>
     </div>
   );
 };

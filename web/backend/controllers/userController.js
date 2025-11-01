@@ -70,7 +70,7 @@ exports.getUserProfile = async (req, res, next) => {
 // @access  Private
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { bio, location, website, avatar } = req.body;
+    const { username, bio, location, website, avatar } = req.body;
 
     const user = await User.findById(req.user.id);
 
@@ -79,6 +79,36 @@ exports.updateProfile = async (req, res, next) => {
         success: false,
         message: "Không tìm thấy user",
       });
+    }
+
+    // Nếu đổi username, validate và kiểm tra duplicate
+    if (username !== undefined && username !== user.username) {
+      // Validate format: chỉ cho phép chữ, số, underscore
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({
+          success: false,
+          message: "Username chỉ được chứa chữ cái, số và dấu gạch dưới",
+        });
+      }
+
+      // Validate length
+      if (username.length < 3 || username.length > 30) {
+        return res.status(400).json({
+          success: false,
+          message: "Username phải từ 3 đến 30 ký tự",
+        });
+      }
+
+      // Kiểm tra username đã tồn tại chưa
+      const existingUser = await User.findOne({ username });
+      if (existingUser && existingUser._id.toString() !== req.user.id) {
+        return res.status(400).json({
+          success: false,
+          message: "Username đã được sử dụng",
+        });
+      }
+
+      user.username = username;
     }
 
     // Update các fields
@@ -95,6 +125,13 @@ exports.updateProfile = async (req, res, next) => {
       data: user,
     });
   } catch (error) {
+    // Handle duplicate key error (nếu có race condition)
+    if (error.code === 11000 && error.keyPattern?.username) {
+      return res.status(400).json({
+        success: false,
+        message: "Username đã được sử dụng",
+      });
+    }
     next(error);
   }
 };

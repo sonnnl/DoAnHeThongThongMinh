@@ -23,6 +23,7 @@ import {
   FiCalendar,
   FiEye,
   FiTag,
+  FiRefreshCw,
 } from "react-icons/fi";
 import {
   timeAgo,
@@ -37,11 +38,15 @@ const PostDetail = () => {
   const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const [voteError, setVoteError] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch post
-  const { data, isLoading, error } = useQuery(["post", slug], () =>
-    postsAPI.getPost(slug)
-  );
+  const {
+    data,
+    isLoading,
+    error,
+    refetch: refetchPost,
+  } = useQuery(["post", slug], () => postsAPI.getPost(slug));
 
   // Vote mutation
   const voteMutation = useMutation(
@@ -61,10 +66,28 @@ const PostDetail = () => {
   const saveMutation = useMutation(() => postsAPI.savePost(data?.data._id), {
     onSuccess: () => {
       toast.success("Đã lưu bài viết!");
+      // Update isSaved optimistically
+      queryClient.setQueryData(["post", slug], (old) => {
+        if (old?.data) {
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              isSaved: true,
+            },
+          };
+        }
+        return old;
+      });
       queryClient.invalidateQueries(["post", slug]);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Lưu thất bại");
+      // Nếu lỗi là "Bài viết đã được lưu", tự động gọi unsave
+      if (error.response?.data?.message?.includes("đã được lưu")) {
+        unsaveMutation.mutate();
+      } else {
+        toast.error(error.response?.data?.message || "Lưu thất bại");
+      }
     },
   });
 
@@ -74,6 +97,19 @@ const PostDetail = () => {
     {
       onSuccess: () => {
         toast.success("Đã bỏ lưu bài viết!");
+        // Update isSaved optimistically
+        queryClient.setQueryData(["post", slug], (old) => {
+          if (old?.data) {
+            return {
+              ...old,
+              data: {
+                ...old.data,
+                isSaved: false,
+              },
+            };
+          }
+          return old;
+        });
         queryClient.invalidateQueries(["post", slug]);
       },
       onError: (error) => {
@@ -109,6 +145,10 @@ const PostDetail = () => {
       toast.error("Vui lòng đăng nhập để lưu bài viết");
       return;
     }
+    if (isAuthor) {
+      toast.error("Bạn không thể lưu bài viết của chính mình");
+      return;
+    }
     if (post?.isSaved) {
       unsaveMutation.mutate();
     } else {
@@ -136,6 +176,45 @@ const PostDetail = () => {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href);
       toast.success("Đã copy link!");
+    }
+  };
+
+  // Handle refresh - reload post and all comments (including replies)
+  const handleRefresh = async () => {
+    if (!post?._id) return;
+
+    setIsRefreshing(true);
+    try {
+      // Refetch post data
+      await refetchPost();
+
+      // Invalidate và refetch all comments queries cho post này
+      // Query key pattern: ["comments", postId, sort]
+      await queryClient.invalidateQueries({
+        queryKey: ["comments", post._id],
+        exact: false,
+        refetchActive: true,
+      });
+
+      // Đợi comments được refetch xong
+      await queryClient.refetchQueries({
+        queryKey: ["comments", post._id],
+        exact: false,
+      });
+
+      // Dispatch event để TẤT CẢ CommentItem tự refetch replies (kể cả chưa mở)
+      // Điều này đảm bảo mọi comment (bao gồm replies) đều được cập nhật
+      window.dispatchEvent(
+        new CustomEvent("refresh-all-comments", {
+          detail: { postId: post._id },
+        })
+      );
+
+      toast.success("Đã làm mới!");
+    } catch (error) {
+      toast.error("Làm mới thất bại, thử lại sau");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -318,10 +397,31 @@ const PostDetail = () => {
                   <span>{post.stats?.commentsCount || 0} bình luận</span>
                 </div>
                 <button
+                  className="btn btn-ghost btn-sm gap-2"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  title="Làm mới bài viết và bình luận"
+                >
+                  <FiRefreshCw
+                    className={`text-base ${
+                      isRefreshing ? "animate-spin" : ""
+                    }`}
+                  />
+                  Làm mới
+                </button>
+                <button
                   className={`btn btn-ghost btn-sm gap-2 ${
                     post?.isSaved ? "text-primary" : ""
-                  }`}
+                  } ${isAuthor ? "opacity-40 cursor-not-allowed" : ""}`}
                   onClick={handleSave}
+                  disabled={isAuthor}
+                  title={
+                    isAuthor
+                      ? "Bạn không thể lưu bài viết của chính mình"
+                      : post?.isSaved
+                      ? "Bỏ lưu bài viết"
+                      : "Lưu bài viết"
+                  }
                 >
                   <FiBookmark />
                   {post?.isSaved ? "Đã lưu" : "Lưu"}
@@ -361,6 +461,18 @@ const PostDetail = () => {
       <div id="comments">
         <CommentList postId={post._id} />
       </div>
+
+      {/* Fixed Refresh Button - Giữa bên phải màn hình */}
+      <button
+        className="fixed right-8 top-1/2 -translate-y-1/2 z-40 btn btn-circle btn-primary shadow-lg hover:shadow-xl transition-all duration-300"
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        title="Làm mới bài viết và bình luận"
+      >
+        <FiRefreshCw
+          className={`text-xl ${isRefreshing ? "animate-spin" : ""}`}
+        />
+      </button>
     </div>
   );
 };

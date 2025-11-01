@@ -4,7 +4,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FiArrowUp,
   FiArrowDown,
@@ -166,30 +166,88 @@ const SaveButton = ({ post, currentUser, queryClient }) => {
     post?.author?._id &&
     currentUser._id === post.author._id;
 
-  // Trạng thái cục bộ nếu API list không trả về isSaved
-  const initialSaved = Boolean(post?.isSaved);
-  const [isSaved, setIsSaved] = useState(initialSaved);
+  // Trạng thái cục bộ, sync với prop post.isSaved
+  const [isSaved, setIsSaved] = useState(Boolean(post?.isSaved));
 
-  const saveMutation = useMutation(
-    () =>
-      isSaved ? postsAPI.unsavePost(post._id) : postsAPI.savePost(post._id),
+  // Sync state với prop khi prop thay đổi (sau refetch)
+  useEffect(() => {
+    setIsSaved(Boolean(post?.isSaved));
+  }, [post?.isSaved]);
+
+  // Helper function để update cache
+  const updatePostInCache = (newSavedState) => {
+    queryClient.setQueriesData(["posts"], (old) => {
+      if (!old?.data?.posts) return old;
+      return {
+        ...old,
+        data: {
+          ...old.data,
+          posts: old.data.posts.map((p) =>
+            p._id === post._id ? { ...p, isSaved: newSavedState } : p
+          ),
+        },
+      };
+    });
+    
+    // Update các query khác
+    queryClient.setQueriesData(["trending"], (old) => {
+      if (!old?.data) return old;
+      return {
+        ...old,
+        data: old.data.map((p) =>
+          p._id === post._id ? { ...p, isSaved: newSavedState } : p
+        ),
+      };
+    });
+    
+    queryClient.invalidateQueries("posts");
+    queryClient.invalidateQueries(["post", post.slug]);
+    queryClient.invalidateQueries("userPosts");
+    queryClient.invalidateQueries("savedPosts");
+  };
+
+  // Unsave mutation - phải định nghĩa trước để saveMutation có thể reference
+  const unsaveMutation = useMutation(
+    () => postsAPI.unsavePost(post._id),
     {
       onSuccess: () => {
-        setIsSaved((prev) => !prev);
-        toast.success(isSaved ? "Đã bỏ lưu bài viết" : "Đã lưu bài viết");
-        queryClient.invalidateQueries("posts");
-        queryClient.invalidateQueries(["post", post.slug]);
-        queryClient.invalidateQueries("userPosts");
-        queryClient.invalidateQueries("savedPosts");
+        setIsSaved(false);
+        toast.success("Đã bỏ lưu bài viết");
+        updatePostInCache(false);
       },
       onError: (error) => {
-        const message =
-          error?.response?.data?.message ||
-          (isSaved ? "Không thể bỏ lưu bài viết" : "Không thể lưu bài viết");
-        toast.error(message);
+        toast.error(error?.response?.data?.message || "Bỏ lưu thất bại");
       },
     }
   );
+
+  // Save mutation
+  const saveMutation = useMutation(
+    () => postsAPI.savePost(post._id),
+    {
+      onSuccess: () => {
+        setIsSaved(true);
+        toast.success("Đã lưu bài viết");
+        updatePostInCache(true);
+      },
+      onError: (error) => {
+        // Nếu lỗi là "Bài viết đã được lưu", tự động gọi unsave
+        if (error.response?.data?.message?.includes("đã được lưu")) {
+          unsaveMutation.mutate();
+        } else {
+          toast.error(error.response?.data?.message || "Lưu thất bại");
+        }
+      },
+    }
+  );
+
+  const handleSave = () => {
+    if (isSaved) {
+      unsaveMutation.mutate();
+    } else {
+      saveMutation.mutate();
+    }
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -206,11 +264,9 @@ const SaveButton = ({ post, currentUser, queryClient }) => {
             : "Lưu bài viết"
         }
         aria-label="Lưu bài viết"
-        onClick={() =>
-          !isOwnPost && !saveMutation.isLoading && saveMutation.mutate()
-        }
-        disabled={isOwnPost || saveMutation.isLoading}
-        aria-busy={saveMutation.isLoading}
+        onClick={() => !isOwnPost && !saveMutation.isLoading && !unsaveMutation.isLoading && handleSave()}
+        disabled={isOwnPost || saveMutation.isLoading || unsaveMutation.isLoading}
+        aria-busy={saveMutation.isLoading || unsaveMutation.isLoading}
       >
         <FiBookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
       </button>
