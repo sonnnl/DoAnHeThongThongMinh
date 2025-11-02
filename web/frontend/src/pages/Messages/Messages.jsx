@@ -28,8 +28,10 @@ import {
   FiUserPlus,
   FiUserMinus,
   FiImage,
+  FiSmile,
 } from "react-icons/fi";
 import { timeAgo } from "../../utils/helpers";
+import EmojiPicker from "emoji-picker-react";
 
 const Messages = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +72,10 @@ const Messages = () => {
     useState("all");
   const [isUploadingGroupAvatar, setIsUploadingGroupAvatar] = useState(false);
   const groupAvatarInputRef = useRef(null);
+
+  // ✨ NEW: State cho emoji picker
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef(null);
 
   // Fetch conversations
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery(
@@ -409,6 +415,33 @@ const Messages = () => {
       updateGroupSettingsMutation,
     ]
   );
+
+  // ✨ NEW: Handler để chèn emoji vào tin nhắn
+  const handleEmojiClick = useCallback((emojiData) => {
+    setNewMessage((prev) => prev + emojiData.emoji);
+    // Đóng emoji picker sau khi chọn (tùy chọn - có thể giữ mở)
+    // setShowEmojiPicker(false);
+  }, []);
+
+  // ✨ NEW: Đóng emoji picker khi click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target) &&
+        !event.target.closest("[data-emoji-button]")
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showEmojiPicker]);
 
   // ✅ OPTIMIZED: useCallback để tránh re-render không cần thiết
   const handleSendMessage = useCallback(
@@ -1190,7 +1223,7 @@ const Messages = () => {
                 {/* ✅ OPTIMIZED: Input form với styling đẹp hơn */}
                 <form
                   onSubmit={handleSendMessage}
-                  className="flex gap-2 items-center"
+                  className="flex gap-2 items-center relative"
                 >
                   <label
                     className={`btn btn-ghost btn-circle btn-sm flex items-center justify-center ${
@@ -1209,6 +1242,37 @@ const Messages = () => {
                       disabled={isUploading}
                     />
                   </label>
+
+                  {/* ✨ NEW: Emoji picker button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="btn btn-ghost btn-circle btn-sm flex items-center justify-center hover:bg-base-300 transition-colors flex-shrink-0"
+                    title="Chèn emoji"
+                    data-emoji-button
+                  >
+                    <FiSmile className="w-5 h-5" />
+                  </button>
+
+                  {/* ✨ NEW: Emoji picker */}
+                  {showEmojiPicker && (
+                    <div
+                      ref={emojiPickerRef}
+                      className="absolute bottom-full mb-2 left-14 z-50 shadow-2xl rounded-lg overflow-hidden"
+                      data-emoji-button
+                    >
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        width={350}
+                        height={400}
+                        previewConfig={{ showPreview: false }}
+                        searchPlaceHolder="Tìm emoji..."
+                        locale="vi"
+                        theme="light"
+                      />
+                    </div>
+                  )}
+
                   <div className="flex-1">
                     <input
                       type="text"
