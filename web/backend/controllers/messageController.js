@@ -230,6 +230,23 @@ exports.sendMessage = async (req, res, next) => {
       });
     }
 
+    // ✨ NEW: Kiểm tra whoCanMessage cho group chat
+    if (conversation.type === "group") {
+      const whoCanMessage =
+        conversation.settings?.whoCanMessage || "all";
+      if (whoCanMessage === "admins_only") {
+        const isAdmin = conversation.admins.some(
+          (adminId) => adminId.toString() === req.user.id
+        );
+        if (!isAdmin) {
+          return res.status(403).json({
+            success: false,
+            message: "Chỉ admin mới có thể gửi tin nhắn trong nhóm này",
+          });
+        }
+      }
+    }
+
     // ✅ FIX: Tạo message với attachments nếu có media
     const messageData = {
       conversation: conversationId,
@@ -494,6 +511,74 @@ exports.removeParticipant = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Đã xóa người khỏi nhóm",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cập nhật group conversation settings
+// @route   PUT /api/messages/conversations/:conversationId
+// @access  Private
+exports.updateGroupConversation = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const { name, avatar, whoCanMessage } = req.body;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy conversation",
+      });
+    }
+
+    // Chỉ group mới có thể update
+    if (conversation.type !== "group") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể cập nhật settings cho group chat",
+      });
+    }
+
+    // Chỉ admin mới có thể update
+    const isAdmin = conversation.admins.some(
+      (adminId) => adminId.toString() === req.user.id
+    );
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới có thể cập nhật settings của nhóm",
+      });
+    }
+
+    // Update các fields
+    if (name !== undefined) {
+      conversation.name = name.trim();
+    }
+    if (avatar !== undefined) {
+      conversation.avatar = avatar;
+    }
+    if (whoCanMessage !== undefined) {
+      if (whoCanMessage !== "all" && whoCanMessage !== "admins_only") {
+        return res.status(400).json({
+          success: false,
+          message: "whoCanMessage phải là 'all' hoặc 'admins_only'",
+        });
+      }
+      conversation.settings = conversation.settings || {};
+      conversation.settings.whoCanMessage = whoCanMessage;
+    }
+
+    await conversation.save();
+
+    await conversation.populate("participants.user", "username avatar badge");
+    await conversation.populate("admins", "username avatar");
+
+    res.status(200).json({
+      success: true,
+      message: "Cập nhật settings thành công",
+      data: conversation,
     });
   } catch (error) {
     next(error);

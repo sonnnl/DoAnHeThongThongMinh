@@ -79,6 +79,15 @@ const messagesAPI = {
     );
     return response.data;
   },
+
+  // Update group conversation settings
+  updateGroupConversation: async (conversationId, data) => {
+    const response = await axios.put(
+      `/messages/conversations/${conversationId}`,
+      data
+    );
+    return response.data;
+  },
 };
 
 export default messagesAPI;

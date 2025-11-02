@@ -58,6 +58,15 @@ router.post(
   messageController.createGroupConversation
 );
 
+// @route   PUT /api/messages/conversations/:conversationId
+// @desc    Cập nhật group conversation settings
+// @access  Private
+router.put(
+  "/conversations/:conversationId",
+  authenticate,
+  messageController.updateGroupConversation
+);
+
 // @route   POST /api/messages/conversations/:conversationId/participants
 // @desc    Thêm người vào group
 // @access  Private
