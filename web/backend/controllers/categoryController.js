@@ -84,7 +84,7 @@ exports.getCategories = async (req, res, next) => {
         break;
     }
 
-    const categories = await Category.find({ isActive: true })
+    const categories = await Category.find({ "settings.isActive": true })
       .sort(sortQuery)
       .lean();
 
@@ -115,6 +115,42 @@ exports.getCategories = async (req, res, next) => {
   }
 };
 
+// @desc    Admin: Lấy tất cả categories (kèm inactive)
+// @route   GET /api/categories/admin
+// @access  Private (Moderator/Admin)
+exports.adminGetCategories = async (req, res, next) => {
+  try {
+    const { sort = "popular", status = "all" } = req.query;
+
+    let sortQuery = {};
+    switch (sort) {
+      case "name":
+        sortQuery = { name: 1 };
+        break;
+      case "new":
+        sortQuery = { createdAt: -1 };
+        break;
+      case "posts":
+        sortQuery = { "stats.postsCount": -1 };
+        break;
+      case "popular":
+      default:
+        sortQuery = { "stats.followersCount": -1, "stats.postsCount": -1 };
+        break;
+    }
+
+    const query = {};
+    if (status === "active") query["settings.isActive"] = true;
+    if (status === "inactive") query["settings.isActive"] = false;
+
+    const categories = await Category.find(query).sort(sortQuery).lean();
+
+    res.status(200).json({ success: true, data: categories });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Lấy chi tiết category
 // @route   GET /api/categories/:slug
 // @access  Public
@@ -122,7 +158,7 @@ exports.getCategory = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    const category = await Category.findOne({ slug, isActive: true })
+    const category = await Category.findOne({ slug, "settings.isActive": true })
       .populate("createdBy", "username")
       .lean();
 
@@ -181,7 +217,7 @@ exports.updateCategory = async (req, res, next) => {
     if (description !== undefined) category.description = description;
     if (color) category.color = color;
     if (icon) category.icon = icon;
-    if (isActive !== undefined) category.isActive = isActive;
+    if (isActive !== undefined) category.settings.isActive = isActive;
 
     await category.save();
 

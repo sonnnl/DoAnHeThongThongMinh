@@ -38,6 +38,9 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+// Trạng thái cục bộ để tránh lặp lại xử lý khi bị ban
+let isHandlingBan = false;
+
 // Response interceptor - Handle errors và refresh token
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -71,6 +74,64 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    // Handle 403 Forbidden - banned user
+    if (error.response?.status === 403) {
+      const message = error.response?.data?.message || "";
+      const reason = error.response?.data?.reason || "";
+      const bannedUntil = error.response?.data?.bannedUntil
+        ? new Date(error.response.data.bannedUntil)
+        : null;
+
+      if (
+        !isHandlingBan &&
+        (message.toLowerCase().includes("banned") || reason || bannedUntil)
+      ) {
+        isHandlingBan = true;
+        const { clearAuth } = useAuthStore.getState();
+        clearAuth();
+
+        // Tính thời gian còn lại
+        let remainStr = "";
+        if (bannedUntil) {
+          const ms = bannedUntil.getTime() - Date.now();
+          if (ms > 0) {
+            const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+            const hours = Math.floor(
+              (ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+            );
+            const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+            if (days > 0) remainStr = `${days} ngày ${hours} giờ`;
+            else if (hours > 0) remainStr = `${hours} giờ ${minutes} phút`;
+            else remainStr = `${minutes} phút`;
+          }
+        }
+
+        const banMsg = bannedUntil
+          ? `Tài khoản bị hạn chế đến ${bannedUntil.toLocaleString("vi-VN")}${
+              remainStr ? ` (còn ${remainStr})` : ""
+            }${reason ? `. Lý do: ${reason}` : ""}`
+          : reason
+          ? `Tài khoản bị hạn chế: ${reason}`
+          : "Tài khoản của bạn đang bị hạn chế quyền truy cập";
+
+        // Hiện toast nhưng KHÔNG reload trang, điều hướng mềm ở App qua custom event
+        toast.error(banMsg);
+        // Dập tắt toast lỗi mặc định cho request này
+        if (originalRequest) originalRequest.suppressErrorToast = true;
+
+        window.dispatchEvent(
+          new CustomEvent("auth:banned", {
+            detail: { reason, message: banMsg, bannedUntil },
+          })
+        );
+        // Reset cờ sau một chút để tránh chặn toàn bộ request sau đó
+        setTimeout(() => {
+          isHandlingBan = false;
+        }, 1500);
+        return Promise.reject(error);
+      }
+    }
+
     // Handle other errors
     const message =
       error.response?.data?.message || error.message || "Đã có lỗi xảy ra";
@@ -78,8 +139,12 @@ axiosInstance.interceptors.response.use(
     // Cho phép tắt toast ở từng request
     const suppress = originalRequest?.suppressErrorToast === true;
 
-    // Show toast for errors (except 401 which redirects)
-    if (error.response?.status !== 401 && !suppress) {
+    // Show toast for errors (except 401 which redirects, and 403 which ta tự xử lý)
+    if (
+      error.response?.status !== 401 &&
+      error.response?.status !== 403 &&
+      !suppress
+    ) {
       toast.error(message);
     }
 

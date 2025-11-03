@@ -230,7 +230,7 @@ exports.getCommentsByPost = async (req, res, next) => {
       .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("author", "username avatar badge")
+      .populate("author", "username avatar badge restrictions.bannedUntil role")
       .lean();
 
     const total = await Comment.countDocuments(query);
@@ -244,6 +244,21 @@ exports.getCommentsByPost = async (req, res, next) => {
         });
       } else {
         comment.repliesCount = 0;
+      }
+
+      // Shadow-ban: ẩn nội dung nếu author đang bị ban (trừ chính họ và admin/mod)
+      const requester = req.user;
+      const bannedUntil = comment.author?.restrictions?.bannedUntil
+        ? new Date(comment.author.restrictions.bannedUntil).getTime()
+        : 0;
+      const isAuthor = requester && comment.author && comment.author._id?.toString?.() === requester?.id;
+      const isPrivileged = requester && ["admin", "moderator"].includes(requester.role);
+      const now = Date.now();
+      if (!isAuthor && !isPrivileged && bannedUntil > now) {
+        comment.content = "";
+        comment.deletedMessage = "[Bình luận của người dùng đang bị hạn chế]";
+        comment.images = [];
+        comment.isHiddenByModeration = true;
       }
 
       // Nếu user đang đăng nhập, lấy vote status
@@ -294,7 +309,7 @@ exports.getCommentReplies = async (req, res, next) => {
       .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("author", "username avatar badge")
+      .populate("author", "username avatar badge restrictions.bannedUntil role")
       .populate("replyTo", "username")
       .lean();
 
@@ -303,9 +318,22 @@ exports.getCommentReplies = async (req, res, next) => {
       isDeleted: false,
     });
 
-    // Nếu user đang đăng nhập, lấy vote status
+    // Shadow-ban + vote status
     if (req.user) {
       for (let reply of replies) {
+        const bannedUntil = reply.author?.restrictions?.bannedUntil
+          ? new Date(reply.author.restrictions.bannedUntil).getTime()
+          : 0;
+        const isAuthor = reply.author && reply.author._id?.toString?.() === req.user.id;
+        const isPrivileged = ["admin", "moderator"].includes(req.user.role);
+        const now = Date.now();
+        if (!isAuthor && !isPrivileged && bannedUntil > now) {
+          reply.content = "";
+          reply.deletedMessage = "[Bình luận của người dùng đang bị hạn chế]";
+          reply.images = [];
+          reply.isHiddenByModeration = true;
+        }
+
         const vote = await Vote.findOne({
           user: req.user.id,
           targetType: "Comment",
@@ -439,7 +467,7 @@ exports.getComment = async (req, res, next) => {
     const { commentId } = req.params;
 
     const comment = await Comment.findById(commentId)
-      .populate("author", "username avatar badge stats")
+      .populate("author", "username avatar badge stats restrictions.bannedUntil role")
       .populate("post", "title slug")
       .lean();
 
@@ -448,6 +476,21 @@ exports.getComment = async (req, res, next) => {
         success: false,
         message: "Không tìm thấy comment",
       });
+    }
+
+    // Shadow-ban: ẩn nội dung nếu author đang bị ban (trừ chính họ và admin/mod)
+    const requester = req.user;
+    const bannedUntil = comment.author?.restrictions?.bannedUntil
+      ? new Date(comment.author.restrictions.bannedUntil).getTime()
+      : 0;
+    const isAuthor = requester && comment.author && comment.author._id?.toString?.() === requester.id;
+    const isPrivileged = requester && ["admin", "moderator"].includes(requester.role);
+    const now = Date.now();
+    if (!isAuthor && !isPrivileged && bannedUntil > now) {
+      comment.content = "";
+      comment.deletedMessage = "[Bình luận của người dùng đang bị hạn chế]";
+      comment.images = [];
+      comment.isHiddenByModeration = true;
     }
 
     // Lấy parent comment nếu có

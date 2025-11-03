@@ -18,6 +18,7 @@ const User = require("../models/User");
 const UserFollow = require("../models/UserFollow");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
+const dayjs = require("dayjs");
 
 // @desc    Lấy profile user theo username
 // @route   GET /api/users/:username
@@ -561,6 +562,225 @@ exports.searchUsers = async (req, res, next) => {
           pages: Math.ceil(total / limit),
         },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========== ADMIN/MODERATOR APIS ==========
+// @desc    Admin: Liệt kê người dùng với filter
+// @route   GET /api/users/admin
+// @access  Private (Moderator/Admin)
+exports.adminListUsers = async (req, res, next) => {
+  try {
+    const { q = "", role = "", banned = "", page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = {};
+    if (q) {
+      query.$or = [
+        { username: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+      ];
+    }
+    if (role) query.role = role;
+    if (banned === "true")
+      query["restrictions.bannedUntil"] = { $gt: new Date() };
+    if (banned === "false")
+      query.$or = [
+        ...(query.$or || []),
+        { "restrictions.bannedUntil": null },
+        { "restrictions.bannedUntil": { $lte: new Date() } },
+      ];
+
+    const users = await User.find(query)
+      .select(
+        "username email avatar role badge stats restrictions registeredAt lastActivityAt"
+      )
+      .sort({ registeredAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await User.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin: Cập nhật role user
+// @route   PUT /api/users/admin/:userId/role
+// @access  Private (Moderator/Admin)
+exports.adminUpdateRole = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    if (!["user", "moderator", "admin"].includes(role)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Role không hợp lệ" });
+    }
+    const user = await User.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy user" });
+
+    // Không tự tác động chính mình
+    if (user._id.toString() === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể thay đổi quyền của chính bạn",
+      });
+    }
+
+    // Moderator không được chỉnh sửa admin
+    if (user.role === "admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới có thể chỉnh sửa admin khác",
+      });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res
+      .status(200)
+      .json({ success: true, message: "Cập nhật role thành công", data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin: Ban user trong N ngày (hoặc permanent)
+// @route   POST /api/users/admin/:userId/ban
+// @access  Private (Moderator/Admin)
+exports.adminBanUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { days = 1, reason = "Vi phạm quy định" } = req.body;
+    const user = await User.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy user" });
+
+    if (user._id.toString() === req.user.id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Không thể ban chính bạn" });
+    }
+
+    if (user.role === "admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới có thể ban admin khác",
+      });
+    }
+
+    const banUntil = dayjs().add(parseInt(days), "day").toDate();
+    user.restrictions.bannedUntil = banUntil;
+    user.restrictions.canComment = false;
+    user.restrictions.canPost = false;
+    user.restrictions.banReason = reason;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Đã ban user",
+      data: { bannedUntil: banUntil },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin: Gỡ ban user
+// @route   POST /api/users/admin/:userId/unban
+// @access  Private (Moderator/Admin)
+exports.adminUnbanUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy user" });
+
+    if (user._id.toString() === req.user.id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Không thể tự gỡ ban chính bạn" });
+    }
+
+    if (user.role === "admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới có thể gỡ ban admin khác",
+      });
+    }
+
+    user.restrictions.bannedUntil = null;
+    user.restrictions.banReason = "";
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Đã gỡ ban user" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin: Cập nhật restrictions (canPost/canComment)
+// @route   PUT /api/users/admin/:userId/restrictions
+// @access  Private (Moderator/Admin)
+exports.adminSetRestrictions = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { canPost, canComment } = req.body;
+    const user = await User.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy user" });
+
+    if (user._id.toString() === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể tự áp dụng hạn chế cho chính bạn",
+      });
+    }
+
+    if (user.role === "admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới có thể hạn chế admin khác",
+      });
+    }
+
+    if (typeof canPost === "boolean") user.restrictions.canPost = canPost;
+    if (typeof canComment === "boolean")
+      user.restrictions.canComment = canComment;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cập nhật hạn chế thành công",
+      data: user.restrictions,
     });
   } catch (error) {
     next(error);

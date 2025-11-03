@@ -12,6 +12,12 @@ const categoriesAPI = {
     return response;
   },
 
+  // Admin: get categories (include inactive)
+  adminGetCategories: async (params) => {
+    const response = await axios.get("/categories/admin", { params });
+    return response;
+  },
+
   // Get category by slug
   getCategory: async (slug) => {
     const response = await axios.get(`/categories/${slug}`);

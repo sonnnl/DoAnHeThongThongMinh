@@ -188,7 +188,7 @@ exports.getPosts = async (req, res, next) => {
       .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("author", "username avatar badge")
+      .populate("author", "username avatar badge restrictions.bannedUntil role")
       .populate("category", "name slug color")
       .lean();
 
@@ -227,6 +227,23 @@ exports.getPosts = async (req, res, next) => {
       });
     }
 
+    // Shadow-ban: ẩn nội dung nếu author đang bị ban (trừ chính họ và admin/mod)
+    const requester = req.user;
+    const isPrivileged = (user) => user && ["admin", "moderator"].includes(user.role);
+    const now = Date.now();
+    for (const p of posts) {
+      const bannedUntil = p.author?.restrictions?.bannedUntil
+        ? new Date(p.author.restrictions.bannedUntil).getTime()
+        : 0;
+      const isAuthor = requester && p.author && p.author._id?.toString?.() === requester.id;
+      if (!isAuthor && !(requester && isPrivileged(requester)) && bannedUntil > now) {
+        p.content = "[Nội dung của người dùng đang bị hạn chế]";
+        if (p.media?.images) p.media.images = [];
+        if (p.media?.videos) p.media.videos = [];
+        p.isHiddenByModeration = true;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -252,7 +269,7 @@ exports.getPost = async (req, res, next) => {
     const { slug } = req.params;
 
     const post = await Post.findOne({ slug, isDeleted: false })
-      .populate("author", "username avatar badge stats registeredAt")
+      .populate("author", "username avatar badge stats registeredAt restrictions.bannedUntil role")
       .populate("category", "name slug color description")
       .lean();
 
@@ -270,6 +287,21 @@ exports.getPost = async (req, res, next) => {
     await User.findByIdAndUpdate(post.author._id, {
       $inc: { "stats.viewsReceived": 1 },
     });
+
+    // Shadow-ban: ẩn nội dung nếu author đang bị ban (trừ chính họ và admin/mod)
+    const requester = req.user;
+    const now = Date.now();
+    const bannedUntil = post.author?.restrictions?.bannedUntil
+      ? new Date(post.author.restrictions.bannedUntil).getTime()
+      : 0;
+    const isAuthor = requester && post.author && post.author._id?.toString?.() === requester.id;
+    const isPrivileged = requester && ["admin", "moderator"].includes(requester.role);
+    if (!isAuthor && !isPrivileged && bannedUntil > now) {
+      post.content = "[Nội dung của người dùng đang bị hạn chế]";
+      if (post.media?.images) post.media.images = [];
+      if (post.media?.videos) post.media.videos = [];
+      post.isHiddenByModeration = true;
+    }
 
     // Nếu user đang đăng nhập, lấy vote status và saved status
     if (req.user) {
@@ -305,7 +337,7 @@ exports.getPostById = async (req, res, next) => {
     const { postId } = req.params;
 
     const post = await Post.findOne({ _id: postId, isDeleted: false })
-      .populate("author", "username avatar badge stats registeredAt")
+      .populate("author", "username avatar badge stats registeredAt restrictions.bannedUntil role")
       .populate("category", "name slug color description")
       .lean();
 
@@ -318,6 +350,21 @@ exports.getPostById = async (req, res, next) => {
 
     // Tăng view count
     await Post.findByIdAndUpdate(post._id, { $inc: { "stats.viewsCount": 1 } });
+
+    // Shadow-ban: ẩn nội dung nếu author đang bị ban (trừ chính họ và admin/mod)
+    const requester = req.user;
+    const now = Date.now();
+    const bannedUntil = post.author?.restrictions?.bannedUntil
+      ? new Date(post.author.restrictions.bannedUntil).getTime()
+      : 0;
+    const isAuthor = requester && post.author && post.author._id?.toString?.() === requester.id;
+    const isPrivileged = requester && ["admin", "moderator"].includes(requester.role);
+    if (!isAuthor && !isPrivileged && bannedUntil > now) {
+      post.content = "[Nội dung của người dùng đang bị hạn chế]";
+      if (post.media?.images) post.media.images = [];
+      if (post.media?.videos) post.media.videos = [];
+      post.isHiddenByModeration = true;
+    }
 
     // Nếu user đang đăng nhập, lấy vote status và saved status
     if (req.user) {
@@ -498,7 +545,7 @@ exports.searchPosts = async (req, res, next) => {
       .sort({ score: -1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("author", "username avatar badge")
+      .populate("author", "username avatar badge restrictions.bannedUntil role")
       .populate("category", "name slug color")
       .lean();
 
@@ -628,6 +675,19 @@ exports.getSavedPosts = async (req, res, next) => {
         if (post && !post.isDeleted) {
           // Tất cả posts trong savedPosts đều đã được lưu
           post.isSaved = true;
+          // Shadow-ban: ẩn post của author đang bị ban với người xem khác
+          const bannedUntil = post.author?.restrictions?.bannedUntil
+            ? new Date(post.author.restrictions.bannedUntil).getTime()
+            : 0;
+          const now = Date.now();
+          const isAuthor = req.user && post.author && post.author._id?.toString?.() === req.user.id;
+          const isPrivileged = req.user && ["admin", "moderator"].includes(req.user.role);
+          if (!isAuthor && !isPrivileged && bannedUntil > now) {
+            post.content = "[Nội dung của người dùng đang bị hạn chế]";
+            if (post.media?.images) post.media.images = [];
+            if (post.media?.videos) post.media.videos = [];
+            post.isHiddenByModeration = true;
+          }
           return post;
         }
         return null;
@@ -666,9 +726,26 @@ exports.getTrendingPosts = async (req, res, next) => {
     })
       .sort({ score: -1, "stats.viewsCount": -1 })
       .limit(parseInt(limit))
-      .populate("author", "username avatar badge")
+      .populate("author", "username avatar badge restrictions.bannedUntil role")
       .populate("category", "name slug color")
       .lean();
+
+    // Shadow-ban cho trending
+    const requester = req.user;
+    const isPrivileged = requester && ["admin", "moderator"].includes(requester.role);
+    const now2 = Date.now();
+    for (const p of posts) {
+      const bannedUntil2 = p.author?.restrictions?.bannedUntil
+        ? new Date(p.author.restrictions.bannedUntil).getTime()
+        : 0;
+      const isAuthor2 = requester && p.author && p.author._id?.toString?.() === requester.id;
+      if (!isAuthor2 && !isPrivileged && bannedUntil2 > now2) {
+        p.content = "[Nội dung của người dùng đang bị hạn chế]";
+        if (p.media?.images) p.media.images = [];
+        if (p.media?.videos) p.media.videos = [];
+        p.isHiddenByModeration = true;
+      }
+    }
 
     res.status(200).json({
       success: true,

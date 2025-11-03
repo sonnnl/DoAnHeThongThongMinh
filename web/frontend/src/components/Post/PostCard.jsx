@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 const PostCard = ({ post, hideVoteButtons = false }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const isHidden = Boolean(post?.isHiddenByModeration);
   const rawScore = post?.stats?.upvotes - post?.stats?.downvotes;
   const score = Math.round(rawScore || 0);
   const scoreState = score > 0 ? "pos" : score < 0 ? "neg" : "neu";
@@ -62,7 +63,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
               </div>
             ) : (
               <>
-                <button className="btn btn-ghost btn-xs btn-circle hover:bg-success/20 hover:text-success">
+                <button className="btn btn-ghost btn-xs btn-circle hover:bg-success/20 hover:text-success" disabled={isHidden} title={isHidden ? "Nội dung bị hạn chế" : "Upvote"}>
                   <FiArrowUp className="text-lg" />
                 </button>
                 <span
@@ -72,7 +73,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
                 >
                   {formatNumber(score)}
                 </span>
-                <button className="btn btn-ghost btn-xs btn-circle hover:bg-error/20 hover:text-error">
+                <button className="btn btn-ghost btn-xs btn-circle hover:bg-error/20 hover:text-error" disabled={isHidden} title={isHidden ? "Nội dung bị hạn chế" : "Downvote"}>
                   <FiArrowDown className="text-lg" />
                 </button>
               </>
@@ -132,7 +133,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
               <div className="flex items-center gap-4">
                 <Link
                   to={`/post/${post.slug}#comments`}
-                  className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
+                  className={`flex items-center gap-1 text-sm transition-colors ${isHidden ? "pointer-events-none opacity-50" : "hover:text-primary"}`}
                   title="Xem bình luận"
                 >
                   <FiMessageSquare />
@@ -150,6 +151,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
                 post={post}
                 currentUser={user}
                 queryClient={queryClient}
+                disabled={isHidden}
               />
             </div>
           </div>
@@ -160,7 +162,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
 };
 
 // Nút lưu bài viết: gọi API, toggle màu khi đã lưu, disable nếu là tác giả
-const SaveButton = ({ post, currentUser, queryClient }) => {
+const SaveButton = ({ post, currentUser, queryClient, disabled }) => {
   const isOwnPost =
     currentUser?._id &&
     post?.author?._id &&
@@ -254,7 +256,7 @@ const SaveButton = ({ post, currentUser, queryClient }) => {
       <button
         type="button"
         className={`btn btn-ghost btn-sm btn-circle tooltip tooltip-left flex items-center justify-center ${
-          isOwnPost ? "opacity-40 pointer-events-none" : ""
+          isOwnPost || disabled ? "opacity-40 pointer-events-none" : ""
         } ${isSaved ? "text-primary" : ""}`}
         data-tip={
           isOwnPost
@@ -264,8 +266,8 @@ const SaveButton = ({ post, currentUser, queryClient }) => {
             : "Lưu bài viết"
         }
         aria-label="Lưu bài viết"
-        onClick={() => !isOwnPost && !saveMutation.isLoading && !unsaveMutation.isLoading && handleSave()}
-        disabled={isOwnPost || saveMutation.isLoading || unsaveMutation.isLoading}
+        onClick={() => !isOwnPost && !disabled && !saveMutation.isLoading && !unsaveMutation.isLoading && handleSave()}
+        disabled={isOwnPost || disabled || saveMutation.isLoading || unsaveMutation.isLoading}
         aria-busy={saveMutation.isLoading || unsaveMutation.isLoading}
       >
         <FiBookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />

@@ -339,17 +339,20 @@ exports.getMyReports = async (req, res, next) => {
 // @access  Private (Admin/Moderator)
 exports.getReportStats = async (req, res, next) => {
   try {
+    const { days = 30 } = req.query;
+    const sinceDate = new Date(Date.now() - parseInt(days) * 24 * 60 * 60 * 1000);
     const pending = await Report.countDocuments({ status: "pending" });
     const accepted = await Report.countDocuments({ status: "accepted" });
     const rejected = await Report.countDocuments({ status: "rejected" });
 
     // Top reported users
     const topReportedUsers = await Report.aggregate([
-      { $match: { status: "accepted" } },
+      { $match: { status: "accepted", reviewedAt: { $gte: sinceDate } } },
       {
         $group: {
           _id: "$reportedUser",
           count: { $sum: 1 },
+          lastAcceptedAt: { $max: "$reviewedAt" },
         },
       },
       { $sort: { count: -1 } },
@@ -370,6 +373,7 @@ exports.getReportStats = async (req, res, next) => {
     const topReported = topReportedUsers.map((item) => ({
       user: userMap[item._id.toString()],
       reportsCount: item.count,
+      lastAcceptedAt: item.lastAcceptedAt,
     }));
 
     res.status(200).json({

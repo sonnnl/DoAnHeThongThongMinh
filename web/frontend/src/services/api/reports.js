@@ -39,8 +39,8 @@ const reportsAPI = {
   },
 
   // Get report stats (Moderator/Admin)
-  getReportStats: async () => {
-    const response = await axios.get("/reports/stats");
+  getReportStats: async (params) => {
+    const response = await axios.get("/reports/stats", { params });
     return response.data;
   },
 };

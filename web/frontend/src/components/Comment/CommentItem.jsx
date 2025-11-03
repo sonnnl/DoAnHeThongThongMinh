@@ -439,11 +439,13 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               className={`btn btn-xs btn-circle ${
                 comment.userVote === "upvote" ? "btn-success" : "btn-ghost"
               }`}
-              onClick={() => !isAuthor && handleVote("upvote")}
-              disabled={isAuthor}
+              onClick={() => !isAuthor && !comment.isHiddenByModeration && handleVote("upvote")}
+              disabled={isAuthor || comment.isHiddenByModeration}
               title={
                 isAuthor
                   ? "Bạn không thể vote comment của chính mình"
+                  : comment.isHiddenByModeration
+                  ? "Bình luận đang bị hạn chế"
                   : "Upvote"
               }
             >
@@ -458,11 +460,13 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               className={`btn btn-xs btn-circle ${
                 comment.userVote === "downvote" ? "btn-error" : "btn-ghost"
               }`}
-              onClick={() => !isAuthor && handleVote("downvote")}
-              disabled={isAuthor}
+              onClick={() => !isAuthor && !comment.isHiddenByModeration && handleVote("downvote")}
+              disabled={isAuthor || comment.isHiddenByModeration}
               title={
                 isAuthor
                   ? "Bạn không thể vote comment của chính mình"
+                  : comment.isHiddenByModeration
+                  ? "Bình luận đang bị hạn chế"
                   : "Downvote"
               }
             >
@@ -556,25 +560,33 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
               </div>
             ) : (
               <div className="space-y-2">
-                {comment.content && (
-                  <p className="text-sm whitespace-pre-wrap">
-                    {renderContentWithMentions(comment.content)}
-                  </p>
-                )}
-                {/* Display images */}
-                {comment.images && comment.images.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {comment.images.map((img, index) => (
-                      <div key={index} className="rounded-lg overflow-hidden max-w-xs">
-                        <img
-                          src={img.url}
-                          alt={`Comment image ${index + 1}`}
-                          className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(img.url, "_blank")}
-                        />
-                      </div>
-                    ))}
+                {comment.isHiddenByModeration ? (
+                  <div className="p-3 bg-base-200 rounded text-sm text-base-content/70 italic">
+                    Bình luận của người dùng đang bị hạn chế
                   </div>
+                ) : (
+                  <>
+                    {comment.content && (
+                      <p className="text-sm whitespace-pre-wrap">
+                        {renderContentWithMentions(comment.content)}
+                      </p>
+                    )}
+                    {/* Display images */}
+                    {comment.images && comment.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {comment.images.map((img, index) => (
+                          <div key={index} className="rounded-lg overflow-hidden max-w-xs">
+                            <img
+                              src={img.url}
+                              alt={`Comment image ${index + 1}`}
+                              className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(img.url, "_blank")}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -582,7 +594,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
             {/* Actions */}
             {!isEditing && (
               <div className="flex items-center gap-3 mt-2">
-                {canReply && isAuthenticated && (
+                {canReply && isAuthenticated && !comment.isHiddenByModeration && (
                   <button
                     className="btn btn-ghost btn-xs gap-1"
                     onClick={() =>
@@ -593,7 +605,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                     Trả lời
                   </button>
                 )}
-                {isAuthor && (
+                {isAuthor && !comment.isHiddenByModeration && (
                   <>
                     <button
                       className="btn btn-ghost btn-xs gap-1"
@@ -614,7 +626,7 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                     </button>
                   </>
                 )}
-                {!isAuthor && isAuthenticated && (
+                {!isAuthor && isAuthenticated && !comment.isHiddenByModeration && (
                   <button
                     className="btn btn-ghost btn-xs gap-1"
                     onClick={() => setShowReportModal(true)}

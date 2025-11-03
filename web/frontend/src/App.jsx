@@ -6,7 +6,7 @@
  *   - web/frontend/src/components/Layout/*.jsx
  */
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuthStore } from "./store/authStore";
 
@@ -34,6 +34,7 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/Admin/Dashboard";
 import AdminReports from "./pages/Admin/Reports";
 import AdminUsers from "./pages/Admin/Users";
+import AdminCategories from "./pages/Admin/Categories";
 import SavedPosts from "./pages/SavedPosts";
 
 // Protected Route Component
@@ -54,6 +55,7 @@ const AdminRoute = ({ children }) => {
 
 function App() {
   const { initializeAuth, isAuthenticated, fetchCurrentUser } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Initialize auth từ localStorage khi app mount
@@ -70,6 +72,18 @@ function App() {
       return () => window.removeEventListener("focus", onFocus);
     }
   }, [isAuthenticated, fetchCurrentUser]);
+
+  useEffect(() => {
+    // Lắng nghe sự kiện banned từ axios interceptor để điều hướng mềm về /login
+    const onBanned = (e) => {
+      // Nếu đã ở trang login thì không cần điều hướng
+      if (window.location.pathname !== "/login") {
+        navigate("/login", { replace: true });
+      }
+    };
+    window.addEventListener("auth:banned", onBanned);
+    return () => window.removeEventListener("auth:banned", onBanned);
+  }, [navigate]);
 
   return (
     <Routes>
@@ -170,6 +184,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminUsers />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/categories"
+          element={
+            <AdminRoute>
+              <AdminCategories />
             </AdminRoute>
           }
         />

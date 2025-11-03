@@ -87,6 +87,34 @@ const usersAPI = {
     });
     return response.data;
   },
+
+  // ===== Admin APIs =====
+  adminList: async (params) => {
+    const response = await axios.get("/users/admin", { params });
+    return response.data;
+  },
+  adminUpdateRole: async (userId, role) => {
+    const response = await axios.put(`/users/admin/${userId}/role`, { role });
+    return response.data;
+  },
+  adminBan: async (userId, days, reason) => {
+    const response = await axios.post(`/users/admin/${userId}/ban`, {
+      days,
+      reason,
+    });
+    return response.data;
+  },
+  adminUnban: async (userId) => {
+    const response = await axios.post(`/users/admin/${userId}/unban`);
+    return response.data;
+  },
+  adminSetRestrictions: async (userId, payload) => {
+    const response = await axios.put(
+      `/users/admin/${userId}/restrictions`,
+      payload
+    );
+    return response.data;
+  },
 };
 
 export default usersAPI;

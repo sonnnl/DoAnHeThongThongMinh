@@ -159,6 +159,20 @@ reportSchema.methods.accept = async function (reviewerId, action, notes = "") {
 
   // Thực hiện action
   switch (action) {
+    case "warning":
+      // Gửi cảnh cáo tới user bị report
+      await mongoose.model("Notification").createNotification({
+        recipient: targetAuthorId,
+        sender: reviewerId,
+        type: "system_announcement",
+        title: "Cảnh cáo vi phạm",
+        message: `Tài khoản của bạn đã bị cảnh cáo do: ${this.reason}`,
+        targetType: this.targetType,
+        targetId: this.targetId,
+        metadata: { reportId: this._id },
+        priority: "high",
+      });
+      break;
     case "content_removed":
       if (this.targetType === "Post") {
         target.status = "removed";
@@ -185,6 +199,18 @@ reportSchema.methods.accept = async function (reviewerId, action, notes = "") {
 
     case "user_banned_permanent":
       await this.banUser(targetAuthorId, 36500, notes); // 100 years
+      // Thông báo bị ban
+      await mongoose.model("Notification").createNotification({
+        recipient: targetAuthorId,
+        sender: reviewerId,
+        type: "user_banned",
+        title: "Tài khoản bị hạn chế vĩnh viễn",
+        message: notes || "Bạn đã vi phạm quy định cộng đồng nhiều lần",
+        targetType: "User",
+        targetId: targetAuthorId,
+        metadata: { reportId: this._id, permanent: true },
+        priority: "urgent",
+      });
       break;
   }
 
@@ -194,6 +220,18 @@ reportSchema.methods.accept = async function (reviewerId, action, notes = "") {
     await user.handleAcceptedReport();
     await user.save();
   }
+
+  // Thông báo cho người gửi report
+  await mongoose.model("Notification").createNotification({
+    recipient: this.reporter,
+    sender: reviewerId,
+    type: "report_accepted",
+    title: "Báo cáo đã được chấp nhận",
+    message: `Báo cáo của bạn đã được xử lý: ${action}`,
+    targetType: this.targetType,
+    targetId: this.targetId,
+    metadata: { reportId: this._id, action },
+  });
 };
 
 // Method: Reject report

@@ -9,7 +9,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { authenticate, isAdmin, optionalAuth } = require("../middleware/auth");
+const { authenticate, isAdmin, optionalAuth, isModerator } = require("../middleware/auth");
 const categoryController = require("../controllers/categoryController");
 
 // @route   GET /api/categories/trending
@@ -30,6 +30,16 @@ router.get(
 // @desc    Lấy tất cả categories
 // @access  Public
 router.get("/", optionalAuth, categoryController.getCategories);
+
+// @route   GET /api/categories/admin
+// @desc    Admin: Lấy tất cả categories (kể cả inactive)
+// @access  Private (Moderator/Admin)
+router.get(
+  "/admin",
+  authenticate,
+  isModerator,
+  categoryController.adminGetCategories
+);
 
 // @route   POST /api/categories
 // @desc    Tạo category mới

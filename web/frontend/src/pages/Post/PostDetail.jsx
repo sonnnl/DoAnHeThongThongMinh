@@ -261,6 +261,7 @@ const PostDetail = () => {
   }
 
   const isAuthor = user?._id === post?.author?._id;
+  const isHidden = Boolean(post?.isHiddenByModeration);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -274,11 +275,13 @@ const PostDetail = () => {
                 className={`btn btn-circle ${
                   post?.userVote === "upvote" ? "btn-success" : "btn-ghost"
                 }`}
-                onClick={() => !isAuthor && handleVote("upvote")}
-                disabled={isAuthor}
+                onClick={() => !isAuthor && !isHidden && handleVote("upvote")}
+                disabled={isAuthor || isHidden}
                 title={
                   isAuthor
                     ? "Bạn không thể vote bài viết của chính mình"
+                    : isHidden
+                    ? "Nội dung đang bị hạn chế"
                     : "Upvote"
                 }
               >
@@ -293,11 +296,13 @@ const PostDetail = () => {
                 className={`btn btn-circle ${
                   post?.userVote === "downvote" ? "btn-error" : "btn-ghost"
                 }`}
-                onClick={() => !isAuthor && handleVote("downvote")}
-                disabled={isAuthor}
+                onClick={() => !isAuthor && !isHidden && handleVote("downvote")}
+                disabled={isAuthor || isHidden}
                 title={
                   isAuthor
                     ? "Bạn không thể vote bài viết của chính mình"
+                    : isHidden
+                    ? "Nội dung đang bị hạn chế"
                     : "Downvote"
                 }
               >
@@ -439,12 +444,14 @@ const PostDetail = () => {
                 <button
                   className={`btn btn-ghost btn-sm gap-2 ${
                     post?.isSaved ? "text-primary" : ""
-                  } ${isAuthor ? "opacity-40 cursor-not-allowed" : ""}`}
+                  } ${isAuthor || isHidden ? "opacity-40 cursor-not-allowed" : ""}`}
                   onClick={handleSave}
-                  disabled={isAuthor}
+                  disabled={isAuthor || isHidden}
                   title={
                     isAuthor
                       ? "Bạn không thể lưu bài viết của chính mình"
+                      : isHidden
+                      ? "Nội dung đang bị hạn chế"
                       : post?.isSaved
                       ? "Bỏ lưu bài viết"
                       : "Lưu bài viết"
@@ -456,6 +463,7 @@ const PostDetail = () => {
                 <button
                   className="btn btn-ghost btn-sm gap-2"
                   onClick={handleShare}
+                  disabled={isHidden}
                 >
                   <FiShare2 />
                   Chia sẻ
@@ -463,7 +471,8 @@ const PostDetail = () => {
                 {!isAuthor && (
                   <button
                     className="btn btn-ghost btn-sm gap-2"
-                    onClick={() => setShowReportModal(true)}
+                    onClick={() => !isHidden && setShowReportModal(true)}
+                    disabled={isHidden}
                     title="Báo cáo bài viết"
                   >
                     {/* dùng biểu tượng cờ từ unicode để tránh import thêm */}

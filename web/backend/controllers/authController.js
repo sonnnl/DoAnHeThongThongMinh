@@ -134,7 +134,9 @@ exports.login = async (req, res, next) => {
         success: false,
         message: `Tài khoản bị cấm đến ${user.restrictions.bannedUntil.toLocaleString(
           "vi-VN"
-        )}. Lý do: ${user.restrictions.banReason}`,
+        )}`,
+        reason: user.restrictions.banReason || "Vi phạm quy định cộng đồng",
+        bannedUntil: user.restrictions.bannedUntil,
       });
     }
 
@@ -383,6 +385,21 @@ exports.googleAuth = async (req, res, next) => {
       user.lastLoginAt = Date.now();
       user.lastActivityAt = Date.now();
       await user.save();
+    }
+
+    // Kiểm tra có bị ban không trước khi cấp token
+    if (
+      user.restrictions?.bannedUntil &&
+      user.restrictions.bannedUntil > Date.now()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: `Tài khoản bị cấm đến ${user.restrictions.bannedUntil.toLocaleString(
+          "vi-VN"
+        )}`,
+        reason: user.restrictions.banReason || "Vi phạm quy định cộng đồng",
+        bannedUntil: user.restrictions.bannedUntil,
+      });
     }
 
     // Fetch lại user để có đầy đủ data mới nhất

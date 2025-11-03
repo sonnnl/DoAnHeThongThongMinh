@@ -9,7 +9,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { authenticate, optionalAuth } = require("../middleware/auth");
+const { authenticate, optionalAuth, isModerator } = require("../middleware/auth");
 const userController = require("../controllers/userController");
 
 // @route   GET /api/users/search
@@ -17,10 +17,6 @@ const userController = require("../controllers/userController");
 // @access  Public
 router.get("/search", userController.searchUsers);
 
-// @route   GET /api/users/:username
-// @desc    Lấy profile user theo username
-// @access  Public
-router.get("/:username", optionalAuth, userController.getUserProfile);
 
 // @route   PUT /api/users/profile
 // @desc    Update profile
@@ -76,5 +72,38 @@ router.get("/:userId/comments", userController.getUserComments);
 // @desc    Update preferences
 // @access  Private
 router.put("/preferences", authenticate, userController.updatePreferences);
+
+// ===== Admin APIs =====
+router.get("/admin", authenticate, isModerator, userController.adminListUsers);
+router.put(
+  "/admin/:userId/role",
+  authenticate,
+  isModerator,
+  userController.adminUpdateRole
+);
+router.post(
+  "/admin/:userId/ban",
+  authenticate,
+  isModerator,
+  userController.adminBanUser
+);
+router.post(
+  "/admin/:userId/unban",
+  authenticate,
+  isModerator,
+  userController.adminUnbanUser
+);
+router.put(
+  "/admin/:userId/restrictions",
+  authenticate,
+  isModerator,
+  userController.adminSetRestrictions
+);
+
+// Đặt route này CUỐI CÙNG để tránh nuốt mất các route khác (như /admin)
+// @route   GET /api/users/:username
+// @desc    Lấy profile user theo username
+// @access  Public
+router.get("/:username", optionalAuth, userController.getUserProfile);
 
 module.exports = router;

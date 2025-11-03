@@ -51,6 +51,7 @@ const authenticate = async (req, res, next) => {
           "vi-VN"
         )}`,
         reason: user.restrictions.banReason,
+        bannedUntil: user.restrictions.bannedUntil,
       });
     }
 
