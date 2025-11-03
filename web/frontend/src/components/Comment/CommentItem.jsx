@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "react-query";
-import { commentsAPI, votesAPI, uploadAPI } from "../../services/api";
+import { commentsAPI, votesAPI, uploadAPI, reportsAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import {
@@ -45,6 +45,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     comment.repliesCount || 0
   );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
   const textareaRef = useRef(null);
 
   const isAuthor = user?._id && comment?.author?._id
@@ -148,6 +151,30 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || "Xóa thất bại");
+      },
+    }
+  );
+
+  // Report mutation
+  const reportMutation = useMutation(
+    () =>
+      reportsAPI.createReport({
+        targetType: "Comment",
+        targetId: comment._id,
+        reason: reportReason,
+        description: reportDescription.trim(),
+      }),
+    {
+      onSuccess: () => {
+        toast.success("Đã gửi báo cáo. Cảm ơn bạn!");
+        setShowReportModal(false);
+        setReportReason("");
+        setReportDescription("");
+      },
+      onError: (error) => {
+        toast.error(
+          error?.response?.data?.message || "Gửi báo cáo thất bại, thử lại sau"
+        );
       },
     }
   );
@@ -588,7 +615,10 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   </>
                 )}
                 {!isAuthor && isAuthenticated && (
-                  <button className="btn btn-ghost btn-xs gap-1">
+                  <button
+                    className="btn btn-ghost btn-xs gap-1"
+                    onClick={() => setShowReportModal(true)}
+                  >
                     <FiFlag />
                     Report
                   </button>
@@ -754,6 +784,90 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
         </div>
         <form method="dialog" className="modal-backdrop">
           <button onClick={() => setShowDeleteModal(false)}>close</button>
+        </form>
+      </dialog>
+
+      {/* Report Modal */}
+      <dialog
+        className={`modal ${showReportModal ? "modal-open" : ""}`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setShowReportModal(false);
+        }}
+      >
+        <div className="modal-box">
+          <h3 className="font-bold text-lg mb-4">Báo cáo bình luận</h3>
+          <div className="form-control gap-3">
+            <label className="label">
+              <span className="label-text">Lý do</span>
+            </label>
+            <select
+              className="select select-bordered"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              disabled={reportMutation.isLoading}
+            >
+              <option value="" disabled>
+                Chọn lý do
+              </option>
+              <option value="spam">Spam</option>
+              <option value="harassment">Quấy rối</option>
+              <option value="hate_speech">Thù ghét</option>
+              <option value="violence">Bạo lực</option>
+              <option value="sexual_content">Nội dung nhạy cảm</option>
+              <option value="misinformation">Thông tin sai lệch</option>
+              <option value="copyright">Bản quyền</option>
+              <option value="personal_information">Thông tin cá nhân</option>
+              <option value="self_harm">Tự gây hại</option>
+              <option value="other">Khác</option>
+            </select>
+
+            <label className="label">
+              <span className="label-text">Mô tả (tùy chọn)</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered"
+              rows={3}
+              placeholder="Mô tả thêm (nếu có)"
+              value={reportDescription}
+              onChange={(e) => setReportDescription(e.target.value)}
+              maxLength={1000}
+              disabled={reportMutation.isLoading}
+            />
+          </div>
+
+          <div className="modal-action">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setShowReportModal(false)}
+              disabled={reportMutation.isLoading}
+            >
+              Hủy
+            </button>
+            <button
+              className={`btn btn-primary ${reportMutation.isLoading ? "loading" : ""}`}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error("Vui lòng đăng nhập để báo cáo");
+                  return;
+                }
+                if (!reportReason) {
+                  toast.error("Vui lòng chọn lý do");
+                  return;
+                }
+                if (isAuthor) {
+                  toast.error("Bạn không thể report bình luận của chính mình");
+                  return;
+                }
+                reportMutation.mutate();
+              }}
+              disabled={reportMutation.isLoading || !reportReason}
+            >
+              Gửi báo cáo
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button onClick={() => setShowReportModal(false)}>close</button>
         </form>
       </dialog>
     </div>

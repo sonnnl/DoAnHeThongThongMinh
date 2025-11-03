@@ -31,11 +31,10 @@ const reportsAPI = {
   },
 
   // Review report (Moderator/Admin)
-  reviewReport: async (reportId, action, reviewNote) => {
-    const response = await axios.put(`/reports/${reportId}`, {
-      action,
-      reviewNote,
-    });
+  reviewReport: async (reportId, action, reviewNote, moderationAction) => {
+    const body = { action, reviewNote };
+    if (moderationAction) body.moderationAction = moderationAction;
+    const response = await axios.put(`/reports/${reportId}`, body);
     return response.data;
   },
 

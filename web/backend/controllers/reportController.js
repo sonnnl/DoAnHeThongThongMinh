@@ -23,10 +23,10 @@ const User = require("../models/User");
 // @access  Private
 exports.createReport = async (req, res, next) => {
   try {
-    const { contentType, contentId, reason, description } = req.body;
+    const { targetType, targetId, reason, description } = req.body;
 
     // Validate contentType
-    if (!["Post", "Comment", "User"].includes(contentType)) {
+    if (!["Post", "Comment", "User"].includes(targetType)) {
       return res.status(400).json({
         success: false,
         message: "contentType phải là Post, Comment hoặc User",
@@ -37,8 +37,8 @@ exports.createReport = async (req, res, next) => {
     let content;
     let reportedUser;
 
-    if (contentType === "Post") {
-      content = await Post.findById(contentId);
+    if (targetType === "Post") {
+      content = await Post.findById(targetId);
       if (!content || content.isDeleted) {
         return res.status(404).json({
           success: false,
@@ -46,8 +46,8 @@ exports.createReport = async (req, res, next) => {
         });
       }
       reportedUser = content.author;
-    } else if (contentType === "Comment") {
-      content = await Comment.findById(contentId);
+    } else if (targetType === "Comment") {
+      content = await Comment.findById(targetId);
       if (!content || content.isDeleted) {
         return res.status(404).json({
           success: false,
@@ -57,14 +57,14 @@ exports.createReport = async (req, res, next) => {
       reportedUser = content.author;
     } else {
       // Report User
-      content = await User.findById(contentId);
+      content = await User.findById(targetId);
       if (!content) {
         return res.status(404).json({
           success: false,
           message: "Không tìm thấy user",
         });
       }
-      reportedUser = contentId;
+      reportedUser = targetId;
     }
 
     // Không thể report chính mình
@@ -78,8 +78,8 @@ exports.createReport = async (req, res, next) => {
     // Kiểm tra đã report chưa
     const existingReport = await Report.findOne({
       reporter: req.user.id,
-      contentType,
-      contentId,
+      targetType,
+      targetId,
       status: "pending",
     });
 
@@ -94,8 +94,8 @@ exports.createReport = async (req, res, next) => {
     const report = await Report.create({
       reporter: req.user.id,
       reportedUser,
-      contentType,
-      contentId,
+      targetType,
+      targetId,
       reason,
       description,
     });
@@ -127,7 +127,8 @@ exports.getReports = async (req, res, next) => {
       page = 1,
       limit = 20,
       status = "pending",
-      contentType,
+      contentType, // backward compat from frontend params
+      targetType,  // preferred
       reason,
     } = req.query;
 
@@ -139,8 +140,10 @@ exports.getReports = async (req, res, next) => {
       query.status = status;
     }
 
-    if (contentType) {
-      query.contentType = contentType;
+    // Support both targetType and legacy contentType
+    const typeFilter = targetType || contentType;
+    if (typeFilter) {
+      query.targetType = typeFilter;
     }
 
     if (reason) {
@@ -196,19 +199,19 @@ exports.getReport = async (req, res, next) => {
     }
 
     // Lấy content data
-    if (report.contentType === "Post") {
-      const post = await Post.findById(report.contentId)
+    if (report.targetType === "Post") {
+      const post = await Post.findById(report.targetId)
         .populate("author", "username avatar")
         .lean();
       report.contentData = post;
-    } else if (report.contentType === "Comment") {
-      const comment = await Comment.findById(report.contentId)
+    } else if (report.targetType === "Comment") {
+      const comment = await Comment.findById(report.targetId)
         .populate("author", "username avatar")
         .populate("post", "title slug")
         .lean();
       report.contentData = comment;
     } else {
-      const user = await User.findById(report.contentId)
+      const user = await User.findById(report.targetId)
         .select("-password -resetPasswordToken")
         .lean();
       report.contentData = user;
@@ -229,7 +232,7 @@ exports.getReport = async (req, res, next) => {
 exports.reviewReport = async (req, res, next) => {
   try {
     const { reportId } = req.params;
-    const { action, reviewNote } = req.body;
+    const { action, reviewNote, moderationAction } = req.body;
 
     // Validate action
     if (!["accept", "reject"].includes(action)) {
@@ -255,42 +258,41 @@ exports.reviewReport = async (req, res, next) => {
       });
     }
 
-    // Update report
-    report.status = action === "accept" ? "accepted" : "rejected";
-    report.reviewedBy = req.user.id;
-    report.reviewedAt = Date.now();
-    report.reviewNote = reviewNote || "";
-
-    await report.save();
-
-    // Nếu accept report
+    // Nếu accept, cho phép chọn hành động moderation nâng cao
     if (action === "accept") {
-      const reportedUser = await User.findById(report.reportedUser);
+      // Nếu có moderationAction cụ thể (phù hợp enum ở Report.action) thì dùng flow mới
+      if (moderationAction) {
+        await report.accept(req.user.id, moderationAction, reviewNote || "");
+      } else {
+        // Flow cũ: đánh dấu accepted + xóa nội dung tối thiểu
+        report.status = "accepted";
+        report.reviewedBy = req.user.id;
+        report.reviewedAt = Date.now();
+        report.reviewNote = reviewNote || "";
+        await report.save();
 
-      // Xử lý content
-      if (report.contentType === "Post") {
-        await Post.findByIdAndUpdate(report.contentId, { isDeleted: true });
-      } else if (report.contentType === "Comment") {
-        await Comment.findByIdAndUpdate(report.contentId, {
-          isDeleted: true,
-          content: "[Comment đã bị xóa do vi phạm quy định]",
-        });
+        // Tối thiểu gỡ nội dung vi phạm
+        if (report.targetType === "Post") {
+          await Post.findByIdAndUpdate(report.targetId, { isDeleted: true });
+        } else if (report.targetType === "Comment") {
+          await Comment.findByIdAndUpdate(report.targetId, {
+            isDeleted: true,
+            content: "[Comment đã bị xóa do vi phạm quy định]",
+          });
+        }
+
+        const reportedUser = await User.findById(report.reportedUser);
+        reportedUser.handleAcceptedReport();
+        await reportedUser.save();
       }
-
-      // Xử lý user bị report
-      reportedUser.handleAcceptedReport();
-      await reportedUser.save();
-
-      // TODO: Gửi notification cho user bị report
+    } else {
+      // reject
+      await report.reject(req.user.id, reviewNote || "");
     }
-
-    // TODO: Gửi notification cho reporter
 
     res.status(200).json({
       success: true,
-      message: `Report đã được ${
-        action === "accept" ? "chấp nhận" : "từ chối"
-      }`,
+      message: `Report đã được ${action === "accept" ? "chấp nhận" : "từ chối"}`,
       data: report,
     });
   } catch (error) {

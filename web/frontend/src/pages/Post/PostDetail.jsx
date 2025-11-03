@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { postsAPI, votesAPI } from "../../services/api";
+import { postsAPI, votesAPI, reportsAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import Loading from "../../components/UI/Loading";
@@ -39,6 +39,9 @@ const PostDetail = () => {
   const queryClient = useQueryClient();
   const [voteError, setVoteError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
 
   // Fetch post
   const {
@@ -114,6 +117,30 @@ const PostDetail = () => {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || "Bỏ lưu thất bại");
+      },
+    }
+  );
+
+  // Report post mutation
+  const reportMutation = useMutation(
+    () =>
+      reportsAPI.createReport({
+        targetType: "Post",
+        targetId: data?.data._id,
+        reason: reportReason,
+        description: reportDescription.trim(),
+      }),
+    {
+      onSuccess: () => {
+        toast.success("Đã gửi báo cáo bài viết");
+        setShowReportModal(false);
+        setReportReason("");
+        setReportDescription("");
+      },
+      onError: (error) => {
+        toast.error(
+          error?.response?.data?.message || "Gửi báo cáo thất bại, thử lại sau"
+        );
       },
     }
   );
@@ -433,6 +460,17 @@ const PostDetail = () => {
                   <FiShare2 />
                   Chia sẻ
                 </button>
+                {!isAuthor && (
+                  <button
+                    className="btn btn-ghost btn-sm gap-2"
+                    onClick={() => setShowReportModal(true)}
+                    title="Báo cáo bài viết"
+                  >
+                    {/* dùng biểu tượng cờ từ unicode để tránh import thêm */}
+                    <span>🚩</span>
+                    Report
+                  </button>
+                )}
                 {isAuthor && (
                   <>
                     <Link
@@ -473,6 +511,90 @@ const PostDetail = () => {
           className={`text-xl ${isRefreshing ? "animate-spin" : ""}`}
         />
       </button>
+
+      {/* Report Modal */}
+      <dialog
+        className={`modal ${showReportModal ? "modal-open" : ""}`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setShowReportModal(false);
+        }}
+      >
+        <div className="modal-box">
+          <h3 className="font-bold text-lg mb-4">Báo cáo bài viết</h3>
+          <div className="form-control gap-3">
+            <label className="label">
+              <span className="label-text">Lý do</span>
+            </label>
+            <select
+              className="select select-bordered"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              disabled={reportMutation.isLoading}
+            >
+              <option value="" disabled>
+                Chọn lý do
+              </option>
+              <option value="spam">Spam</option>
+              <option value="harassment">Quấy rối</option>
+              <option value="hate_speech">Thù ghét</option>
+              <option value="violence">Bạo lực</option>
+              <option value="sexual_content">Nội dung nhạy cảm</option>
+              <option value="misinformation">Thông tin sai lệch</option>
+              <option value="copyright">Bản quyền</option>
+              <option value="personal_information">Thông tin cá nhân</option>
+              <option value="self_harm">Tự gây hại</option>
+              <option value="other">Khác</option>
+            </select>
+
+            <label className="label">
+              <span className="label-text">Mô tả (tùy chọn)</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered"
+              rows={3}
+              placeholder="Mô tả thêm (nếu có)"
+              value={reportDescription}
+              onChange={(e) => setReportDescription(e.target.value)}
+              maxLength={1000}
+              disabled={reportMutation.isLoading}
+            />
+          </div>
+
+          <div className="modal-action">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setShowReportModal(false)}
+              disabled={reportMutation.isLoading}
+            >
+              Hủy
+            </button>
+            <button
+              className={`btn btn-primary ${reportMutation.isLoading ? "loading" : ""}`}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error("Vui lòng đăng nhập để báo cáo");
+                  return;
+                }
+                if (isAuthor) {
+                  toast.error("Bạn không thể report bài viết của chính mình");
+                  return;
+                }
+                if (!reportReason) {
+                  toast.error("Vui lòng chọn lý do");
+                  return;
+                }
+                reportMutation.mutate();
+              }}
+              disabled={reportMutation.isLoading || !reportReason}
+            >
+              Gửi báo cáo
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button onClick={() => setShowReportModal(false)}>close</button>
+        </form>
+      </dialog>
     </div>
   );
 };

@@ -24,6 +24,14 @@ const reportSchema = new mongoose.Schema(
       required: true,
     },
 
+    // User bị report (tác giả của target hoặc chính user nếu targetType = User)
+    reportedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
     // Target (post hoặc comment bị report)
     targetType: {
       type: String,

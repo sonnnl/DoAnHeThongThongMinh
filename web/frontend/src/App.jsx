@@ -30,12 +30,26 @@ import Notifications from "./pages/Notifications";
 import Search from "./pages/Search";
 import Trending from "./pages/Trending";
 import NotFound from "./pages/NotFound";
+// Admin Pages
+import AdminDashboard from "./pages/Admin/Dashboard";
+import AdminReports from "./pages/Admin/Reports";
+import AdminUsers from "./pages/Admin/Users";
 import SavedPosts from "./pages/SavedPosts";
 
 // Protected Route Component
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
+
+// Admin/Moderator Route Guard
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!user || !["admin", "moderator"].includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
 };
 
 function App() {
@@ -131,6 +145,32 @@ function App() {
             <PrivateRoute>
               <Notifications />
             </PrivateRoute>
+          }
+        />
+
+        {/* Admin */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <AdminRoute>
+              <AdminReports />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <AdminUsers />
+            </AdminRoute>
           }
         />
 

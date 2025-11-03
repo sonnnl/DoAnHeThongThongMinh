@@ -40,6 +40,17 @@ const Sidebar = () => {
         ]
       : []),
     { path: "/settings", label: "Cài đặt", icon: FiSettings, public: false },
+    // Admin menu (hiện nếu là moderator/admin)
+    ...(["admin", "moderator"].includes(user?.role)
+      ? [
+          {
+            path: "/admin",
+            label: "Admin",
+            icon: FiSettings,
+            public: false,
+          },
+        ]
+      : []),
   ];
 
   const isActive = (path) => {
