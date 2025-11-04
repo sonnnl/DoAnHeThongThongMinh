@@ -76,5 +76,5 @@ coverage/
 # Cache
 .cache/
 .parcel-cache/
-.cursor
+.cursor/
 *.onnx
