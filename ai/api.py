@@ -21,6 +21,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import onnxruntime as ort
 from tokenizers import Tokenizer
+from transformers import AutoTokenizer
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +38,7 @@ TOXIC_THRESHOLD = 0.5  # Nếu score > threshold thì coi là toxic
 toxic_model = None
 toxic_tokenizer = None
 emotion_model = None
+emotion_tokenizer = None
 
 # Labels cho toxic detection (binary classification: 0 = clean, 1 = toxic)
 TOXIC_LABELS = {
@@ -44,16 +46,16 @@ TOXIC_LABELS = {
     1: "toxic"    # Độc hại
 }
 
-# Labels cho emotion detection (tương lai)
+# Labels cho emotion detection (từ model vinai/phobert-base-v2)
+# Model có 7 classes: Anger, Disgust, Enjoyment, Fear, Other, Sadness, Surprise
 EMOTION_LABELS = {
-    0: "joy",
-    1: "sadness",
-    2: "anger",
+    0: "anger",
+    1: "disgust",
+    2: "enjoyment",  # "joy" trong model
     3: "fear",
-    4: "surprise",
-    5: "disgust",
-    6: "trust",
-    7: "neutral"
+    4: "other",      # "neutral" trong model
+    5: "sadness",
+    6: "surprise"
 }
 
 
@@ -61,11 +63,11 @@ def load_models():
     """
     Load ONNX models và tokenizer khi start server
     """
-    global toxic_model, toxic_tokenizer
+    global toxic_model, toxic_tokenizer, emotion_model, emotion_tokenizer
     
     try:
         # Load tokenizer
-        tokenizer_path = os.path.join(os.path.dirname(__file__), "toxics/v2/tokenizer.json")
+        tokenizer_path = os.path.join(os.path.dirname(__file__), "toxics/v3/tokenizer.json")
         if os.path.exists(tokenizer_path):
             toxic_tokenizer = Tokenizer.from_file(tokenizer_path)
             print("✅ Loaded tokenizer:", tokenizer_path)
@@ -73,23 +75,32 @@ def load_models():
             print("⚠️  Tokenizer not found at:", tokenizer_path)
         
         # Load ONNX model
-        model_path = os.path.join(os.path.dirname(__file__), "toxics/v2/model.onnx")
+        model_path = os.path.join(os.path.dirname(__file__), "toxics/v3/model.onnx")
         if os.path.exists(model_path):
             toxic_model = ort.InferenceSession(model_path)
             print("✅ Loaded toxic model:", model_path)
         else:
             print("⚠️  Model not found at:", model_path)
             
-        # Load Emotion ONNX (tùy chọn, không có tokenizer)
+        # Load Emotion ONNX và tokenizer (tùy chọn)
         try:
-            emotion_model_path = os.path.join(os.path.dirname(__file__), "emotions/best/model.onnx")
-            if os.path.exists(emotion_model_path):
-                # some environments save empty placeholders; ensure size > 0
-                if os.path.getsize(emotion_model_path) > 0:
-                    globals()["emotion_model"] = ort.InferenceSession(emotion_model_path)
-                    print("✅ Loaded emotion model:", emotion_model_path)
-                else:
-                    print("⚠️  Emotion model file exists but is empty:", emotion_model_path)
+            emotion_dir = os.path.join(os.path.dirname(__file__), "emotions/best")
+            emotion_model_path = os.path.join(emotion_dir, "model.onnx")
+            
+            if os.path.exists(emotion_model_path) and os.path.getsize(emotion_model_path) > 0:
+                # Load ONNX model
+                emotion_model = ort.InferenceSession(emotion_model_path)
+                globals()["emotion_model"] = emotion_model
+                print("✅ Loaded emotion model:", emotion_model_path)
+                
+                # Load tokenizer từ transformers (PhobertTokenizer)
+                try:
+                    emotion_tokenizer = AutoTokenizer.from_pretrained(emotion_dir)
+                    globals()["emotion_tokenizer"] = emotion_tokenizer
+                    print("✅ Loaded emotion tokenizer from:", emotion_dir)
+                except Exception as e_tokenizer:
+                    print(f"⚠️  Could not load emotion tokenizer: {e_tokenizer}")
+                    print("⚠️  Emotion model will use toxic tokenizer as fallback")
             else:
                 print("ℹ️  Emotion model not found (optional):", emotion_model_path)
         except Exception as e2:
@@ -174,63 +185,105 @@ def predict_toxic(text):
         return False, 0.0, "clean"
 
 
+def preprocess_emotion_text(text):
+    """
+    Preprocess text cho emotion model (PhobertTokenizer)
+    Returns: (input_ids, attention_mask) với shape [1, MAX_LENGTH]
+    """
+    if not emotion_tokenizer:
+        # Fallback to toxic tokenizer nếu không có emotion tokenizer
+        if toxic_tokenizer:
+            return preprocess_text(text)
+        return None, None
+    
+    try:
+        # Tokenize với emotion tokenizer (PhobertTokenizer)
+        encoded = emotion_tokenizer(
+            text,
+            truncation=True,
+            max_length=MAX_LENGTH,
+            padding="max_length",
+            return_tensors="np"
+        )
+        
+        input_ids = encoded["input_ids"].astype(np.int64)
+        attention_mask = encoded["attention_mask"].astype(np.int64)
+        
+        return input_ids, attention_mask
+    except Exception as e:
+        print(f"❌ Error preprocessing emotion text: {e}")
+        return None, None
+
+
 def predict_emotion(text):
     """
-    Predict emotion bằng ONNX nếu có.
-    Hỗ trợ 2 kiểu input phổ biến:
-      1) tensor(string): đầu vào trực tiếp là chuỗi
-      2) BERT-like: cần input_ids[/attention_mask]; nếu thiếu tokenizer → thử reuse toxic_tokenizer
-    Trả về (label, confidence)
+    Predict emotion bằng ONNX model (PhoBERT-based)
+    Model input: input_ids, attention_mask
+    Returns: (label, confidence)
     """
     try:
         if emotion_model is None:
-            return "neutral", 0.0
+            return "other", 0.0  # "other" thay vì "neutral" để match model
 
+        # Preprocess text với emotion tokenizer
+        input_ids, attention_mask = preprocess_emotion_text(text)
+        
+        if input_ids is None:
+            return "other", 0.0
+
+        # Get input names từ model
         inputs = emotion_model.get_inputs()
         input_names = [i.name for i in inputs]
-        input_types = [i.type for i in inputs]
 
-        # Case 1: string input
-        if len(inputs) == 1 and "string" in input_types[0]:
-            # nhiều model nhận [N] hoặc [N,1]; chọn [1]
-            arr = np.array([text], dtype=object)
-            outputs = emotion_model.run(None, {inputs[0].name: arr})
+        # Map input names (có thể là "input_ids", "input_ids:0", hoặc tên khác)
+        feed = {}
+        name_map = {n.lower(): n for n in input_names}
+        
+        # Tìm input_ids input
+        if "input_ids" in name_map:
+            feed[name_map["input_ids"]] = input_ids
+        elif any("input" in n.lower() or "ids" in n.lower() for n in input_names):
+            # Tìm input đầu tiên có "input" hoặc "ids"
+            for name in input_names:
+                if "input" in name.lower() or "ids" in name.lower():
+                    feed[name] = input_ids
+                    break
         else:
-            # Case 2: BERT-like
-            if toxic_tokenizer is None:
-                # không có tokenizer để sinh ids → fallback
-                return "neutral", 0.0
+            # Fallback: dùng input đầu tiên
+            feed[inputs[0].name] = input_ids
 
-            input_ids, attention_mask = preprocess_text(text)
+        # Tìm attention_mask input
+        if "attention_mask" in name_map:
+            feed[name_map["attention_mask"]] = attention_mask
+        elif any("mask" in n.lower() or "attention" in n.lower() for n in input_names):
+            # Tìm input có "mask" hoặc "attention"
+            for name in input_names:
+                if "mask" in name.lower() or "attention" in name.lower():
+                    feed[name] = attention_mask
+                    break
 
-            feed = {}
-            # map tên phổ biến
-            name_map = {n.lower(): n for n in input_names}
-            if "input_ids" in name_map:
-                feed[name_map["input_ids"]] = input_ids
-            if "attention_mask" in name_map and attention_mask is not None:
-                feed[name_map["attention_mask"]] = attention_mask
+        # Run inference
+        outputs = emotion_model.run(None, feed)
 
-            # nếu model dùng tên khác (e.g., "inputs"), thử bơm input_ids vào input đầu
-            if not feed:
-                feed[inputs[0].name] = input_ids
-
-            outputs = emotion_model.run(None, feed)
-
-        logits = outputs[0][0]
-        # softmax an toàn
+        # Get logits (shape: [1, 7] cho 7 classes)
+        logits = outputs[0][0] if len(outputs[0].shape) > 1 else outputs[0]
+        
+        # Softmax
         exp = np.exp(logits - np.max(logits))
         probs = exp / np.sum(exp)
         idx = int(np.argmax(probs))
 
-        # ánh xạ label; nếu idx ngoài phạm vi → neutral
-        label = EMOTION_LABELS.get(idx, "neutral")
+        # Map label từ EMOTION_LABELS
+        label = EMOTION_LABELS.get(idx, "other")
         confidence = float(probs[idx]) if 0 <= idx < len(probs) else 0.0
+        
         return label, round(confidence, 4)
 
     except Exception as e:
         print(f"❌ Error predicting emotion: {e}")
-        return "neutral", 0.0
+        import traceback
+        traceback.print_exc()
+        return "other", 0.0
 
 
 @app.route("/api/ai/health", methods=["GET"])
@@ -294,7 +347,7 @@ def analyze():
         
         # Log kết quả
         print(f"📝 Text: {text[:100]}...")
-        print(f"🤖 AI Result: isToxic={is_toxic}, score={toxic_score:.4f}, type={toxic_type}")
+        print(f"🤖 AI Result: isToxic={is_toxic}, score={toxic_score:.4f}, type={toxic_type}, emotion={emotion}, emotionScore={emotion_score:.4f}")
         
         # Build response
         result = {
@@ -373,7 +426,7 @@ if __name__ == "__main__":
     print(f"\n{'='*50}")
     print("🤖 AI Service Starting...")
     print(f"   Port: {port}")
-    print(f"   Models: Toxic Detection")
+    print(f"   Models: Toxic Detection, Emotion Detection")
     print(f"{'='*50}\n")
     
     # Run app

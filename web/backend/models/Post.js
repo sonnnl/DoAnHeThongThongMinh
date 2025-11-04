@@ -170,16 +170,15 @@ const postSchema = new mongoose.Schema(
       emotion: {
         type: String,
         enum: [
-          "joy",
-          "sadness",
           "anger",
-          "fear",
-          "surprise",
           "disgust",
-          "trust",
-          "neutral",
+          "enjoyment", // "joy" trong model
+          "fear",
+          "other", // "neutral" trong model
+          "sadness",
+          "surprise",
         ],
-        default: "neutral",
+        default: "other",
       },
       emotionScore: {
         type: Number,

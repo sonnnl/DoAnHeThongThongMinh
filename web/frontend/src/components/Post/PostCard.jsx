@@ -14,7 +14,7 @@ import {
   FiTag,
   FiEye,
 } from "react-icons/fi";
-import { timeAgo, formatNumber, getEmotionEmoji } from "../../utils/helpers";
+import { timeAgo, formatNumber, getEmotionEmoji, getEmotionClass, getEmotionMessage } from "../../utils/helpers";
 import { useMutation, useQueryClient } from "react-query";
 import { postsAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
@@ -24,6 +24,7 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const isHidden = Boolean(post?.isHiddenByModeration);
+  const isAuthor = user?._id === post?.author?._id;
   const rawScore = post?.stats?.upvotes - post?.stats?.downvotes;
   const score = Math.round(rawScore || 0);
   const scoreState = score > 0 ? "pos" : score < 0 ? "neg" : "neu";
@@ -36,10 +37,12 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
       : "border-l-4 border-base-300";
 
   const emotionLabel = post?.aiAnalysis?.emotion || post?.emotion?.label || post?.emotion;
+  const emotionClass = emotionLabel ? getEmotionClass(emotionLabel) : "";
+  const emotionMessage = isAuthor && emotionLabel ? getEmotionMessage(emotionLabel) : null;
 
   return (
     <div
-      className={`card bg-base-100 shadow-sm hover:shadow-xl hover:-translate-y-[2px] transition-all duration-300 border border-base-300 ${borderAccent} animate-fade-in`}
+      className={`card bg-base-100 shadow-sm hover:shadow-xl hover:-translate-y-[2px] transition-all duration-300 border border-base-300 ${emotionClass || borderAccent} animate-fade-in`}
     >
       <div className="card-body p-4">
         <div className="flex gap-4">
@@ -110,6 +113,16 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
               <p className="text-sm text-base-content/70 line-clamp-2 mb-2 leading-relaxed">
                 {post.content.substring(0, 150)}...
               </p>
+            )}
+
+            {/* Emotion Message (chỉ hiển thị cho author) */}
+            {emotionMessage && (
+              <div className={`alert ${emotionClass || 'alert-info'} mb-2 border-l-4 py-2`}>
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">{getEmotionEmoji(emotionLabel)}</span>
+                  <p className="text-xs font-medium flex-1">{emotionMessage}</p>
+                </div>
+              </div>
             )}
 
             {/* Meta info */}

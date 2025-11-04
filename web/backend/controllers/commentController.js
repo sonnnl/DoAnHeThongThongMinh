@@ -89,7 +89,7 @@ exports.createComment = async (req, res, next) => {
     }
 
     // Update emotion field
-    const emotion = aiAnalysis.emotion || "neutral";
+    const emotion = aiAnalysis.emotion || "other";  // "other" thay vì "neutral" để match model
 
     // Tạo comment
     const comment = await Comment.create({

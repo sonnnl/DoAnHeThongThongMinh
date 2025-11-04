@@ -52,12 +52,17 @@ export const getBadgeClass = (badge) => {
 // Get emotion class
 export const getEmotionClass = (emotion) => {
   const emotionMap = {
+    // Labels cũ (backward compatibility)
     joy: "emotion-joy",
     sadness: "emotion-sadness",
     anger: "emotion-anger",
     fear: "emotion-fear",
     surprise: "emotion-surprise",
     neutral: "emotion-neutral",
+    // Labels mới từ model (7 classes)
+    enjoyment: "emotion-enjoyment", // enjoyment = joy (màu vàng)
+    disgust: "emotion-disgust", // disgust (màu cam/nâu)
+    other: "emotion-neutral", // other = neutral
   };
   return emotionMap[emotion] || "emotion-neutral";
 };
@@ -65,14 +70,42 @@ export const getEmotionClass = (emotion) => {
 // Get emotion emoji
 export const getEmotionEmoji = (emotion) => {
   const emojiMap = {
+    // Labels cũ (backward compatibility)
     joy: "😊",
     sadness: "😢",
     anger: "😠",
     fear: "😨",
     surprise: "😲",
     neutral: "😐",
+    // Labels mới từ model (7 classes)
+    enjoyment: "😄", // Enjoyment = vui vẻ, dùng emoji vui hơn
+    disgust: "🤢", // Disgust
+    other: "😐", // Other = neutral
   };
   return emojiMap[emotion] || "😐";
+};
+
+// Get emotion message (lời nhắc dựa vào cảm xúc - chỉ cho author)
+export const getEmotionMessage = (emotion) => {
+  const messageMap = {
+    // Labels cũ (backward compatibility)
+    joy: "Thật tuyệt! Bạn đang cảm thấy vui vẻ. Hãy chia sẻ niềm vui này với mọi người! 🌟",
+    sadness:
+      "Bạn có vẻ buồn. Hãy nhớ rằng mọi chuyện sẽ tốt hơn và bạn không cô đơn! 💙",
+    anger:
+      "Bạn có vẻ đang giận dữ. Hãy bình tĩnh và suy nghĩ kỹ trước khi hành động nhé! 💙",
+    fear: "Bạn có vẻ lo lắng. Hãy hít thở sâu và nhớ rằng bạn đủ mạnh mẽ để vượt qua! 💪",
+    surprise:
+      "Wow! Có vẻ như bạn đang ngạc nhiên về điều gì đó. Điều này thú vị đấy! 🎉",
+    neutral: null, // Không cần nhắc cho neutral
+    // Labels mới từ model (7 classes)
+    enjoyment:
+      "Thật tuyệt! Bạn đang cảm thấy vui vẻ. Hãy chia sẻ niềm vui này với mọi người! 🌟",
+    disgust:
+      "Bạn có vẻ khó chịu. Hãy dành thời gian nghỉ ngơi và làm điều mình thích nhé! 😊",
+    other: null, // Không cần nhắc cho other
+  };
+  return messageMap[emotion] || null;
 };
 
 // Validate email

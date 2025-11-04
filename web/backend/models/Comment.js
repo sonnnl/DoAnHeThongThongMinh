@@ -105,16 +105,15 @@ const commentSchema = new mongoose.Schema(
       label: {
         type: String,
         enum: [
-          "joy",
-          "sadness",
           "anger",
-          "fear",
-          "surprise",
-          "neutral",
-          "love",
           "disgust",
+          "enjoyment",  // "joy" trong model
+          "fear",
+          "other",      // "neutral" trong model
+          "sadness",
+          "surprise",
         ],
-        default: "neutral",
+        default: "other",
       },
       confidence: {
         type: Number,

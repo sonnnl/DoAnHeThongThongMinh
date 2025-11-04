@@ -31,6 +31,8 @@ import {
   getBadgeClass,
   calculateReadingTime,
   getEmotionEmoji,
+  getEmotionClass,
+  getEmotionMessage,
 } from "../../utils/helpers";
 
 const PostDetail = () => {
@@ -265,11 +267,12 @@ const PostDetail = () => {
   const isHidden = Boolean(post?.isHiddenByModeration);
 
   const emotionLabel = post?.aiAnalysis?.emotion || post?.emotion?.label || post?.emotion;
+  const emotionClass = emotionLabel ? getEmotionClass(emotionLabel) : "";
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Post Card */}
-      <div className="card bg-base-100 shadow-md mb-6">
+      <div className={`card bg-base-100 shadow-md mb-6 ${emotionClass}`}>
         <div className="card-body">
           <div className="flex gap-4">
             {/* Vote section */}
@@ -387,6 +390,18 @@ const PostDetail = () => {
                 )}
                 <span>{calculateReadingTime(post.content)}</span>
               </div>
+
+              {/* Emotion Message (chỉ hiển thị cho author) */}
+              {isAuthor && emotionLabel && getEmotionMessage(emotionLabel) && (
+                <div className={`alert ${emotionClass || 'alert-info'} mb-4 border-l-4`}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">{getEmotionEmoji(emotionLabel)}</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{getEmotionMessage(emotionLabel)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Content */}
               <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none mb-6">
