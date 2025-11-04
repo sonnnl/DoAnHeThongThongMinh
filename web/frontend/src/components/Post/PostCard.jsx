@@ -14,7 +14,7 @@ import {
   FiTag,
   FiEye,
 } from "react-icons/fi";
-import { timeAgo, formatNumber } from "../../utils/helpers";
+import { timeAgo, formatNumber, getEmotionEmoji } from "../../utils/helpers";
 import { useMutation, useQueryClient } from "react-query";
 import { postsAPI } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
@@ -34,6 +34,8 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
       : scoreState === "neg"
       ? "border-l-4 border-error/60"
       : "border-l-4 border-base-300";
+
+  const emotionLabel = post?.aiAnalysis?.emotion || post?.emotion?.label || post?.emotion;
 
   return (
     <div
@@ -120,6 +122,15 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
               </Link>
               <span>•</span>
               <span>⏰ {timeAgo(post.createdAt)}</span>
+              {emotionLabel && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200 border border-base-300">
+                    <span className="text-sm">{getEmotionEmoji(emotionLabel)}</span>
+                    <span className="capitalize">{emotionLabel}</span>
+                  </span>
+                </>
+              )}
               {post.stats?.views && (
                 <>
                   <span>•</span>

@@ -425,11 +425,15 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
     );
   }
 
+  // Resolve emotion label from various shapes
+  const emotionLabel =
+    comment?.emotion?.label || comment?.aiAnalysis?.emotion || comment?.emotion;
+
   return (
     <div style={{ marginLeft: `${depth * 2}rem` }}>
       <div
         className={`p-4 rounded-lg ${
-          comment.emotion ? getEmotionClass(comment.emotion) : "bg-base-100"
+          emotionLabel ? getEmotionClass(emotionLabel) : "bg-base-100"
         } mb-4`}
       >
         <div className="flex gap-3">
@@ -521,9 +525,9 @@ const CommentItem = ({ comment, postId, onReply, depth = 0 }) => {
                   </Link>
                 </span>
               )}
-              {comment.emotion && (
-                <span className="text-lg" title={comment.emotion}>
-                  {getEmotionEmoji(comment.emotion)}
+              {emotionLabel && (
+                <span className="text-lg" title={emotionLabel}>
+                  {getEmotionEmoji(emotionLabel)}
                 </span>
               )}
             </div>

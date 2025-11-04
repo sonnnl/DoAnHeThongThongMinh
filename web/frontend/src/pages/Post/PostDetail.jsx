@@ -30,6 +30,7 @@ import {
   formatNumber,
   getBadgeClass,
   calculateReadingTime,
+  getEmotionEmoji,
 } from "../../utils/helpers";
 
 const PostDetail = () => {
@@ -263,6 +264,8 @@ const PostDetail = () => {
   const isAuthor = user?._id === post?.author?._id;
   const isHidden = Boolean(post?.isHiddenByModeration);
 
+  const emotionLabel = post?.aiAnalysis?.emotion || post?.emotion?.label || post?.emotion;
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Post Card */}
@@ -376,6 +379,12 @@ const PostDetail = () => {
                   <FiEye />
                   {formatNumber(post.stats?.viewsCount || 0)} lượt xem
                 </span>
+                {emotionLabel && (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-base-200 text-base-content border border-base-300">
+                    <span className="text-base">{getEmotionEmoji(emotionLabel)}</span>
+                    <span className="capitalize">{emotionLabel}</span>
+                  </span>
+                )}
                 <span>{calculateReadingTime(post.content)}</span>
               </div>
 

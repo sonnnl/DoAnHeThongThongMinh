@@ -36,6 +36,7 @@ TOXIC_THRESHOLD = 0.5  # Nếu score > threshold thì coi là toxic
 # Global variables for models
 toxic_model = None
 toxic_tokenizer = None
+emotion_model = None
 
 # Labels cho toxic detection (binary classification: 0 = clean, 1 = toxic)
 TOXIC_LABELS = {
@@ -79,6 +80,21 @@ def load_models():
         else:
             print("⚠️  Model not found at:", model_path)
             
+        # Load Emotion ONNX (tùy chọn, không có tokenizer)
+        try:
+            emotion_model_path = os.path.join(os.path.dirname(__file__), "emotions/best/model.onnx")
+            if os.path.exists(emotion_model_path):
+                # some environments save empty placeholders; ensure size > 0
+                if os.path.getsize(emotion_model_path) > 0:
+                    globals()["emotion_model"] = ort.InferenceSession(emotion_model_path)
+                    print("✅ Loaded emotion model:", emotion_model_path)
+                else:
+                    print("⚠️  Emotion model file exists but is empty:", emotion_model_path)
+            else:
+                print("ℹ️  Emotion model not found (optional):", emotion_model_path)
+        except Exception as e2:
+            print(f"❌ Error loading emotion model: {e2}")
+
         print("🚀 AI Service ready!")
         
     except Exception as e:
@@ -160,11 +176,61 @@ def predict_toxic(text):
 
 def predict_emotion(text):
     """
-    Predict emotion (placeholder cho tương lai)
-    Hiện tại return default neutral
+    Predict emotion bằng ONNX nếu có.
+    Hỗ trợ 2 kiểu input phổ biến:
+      1) tensor(string): đầu vào trực tiếp là chuỗi
+      2) BERT-like: cần input_ids[/attention_mask]; nếu thiếu tokenizer → thử reuse toxic_tokenizer
+    Trả về (label, confidence)
     """
-    # TODO: Load emotion model khi có
-    return "neutral", 0.0
+    try:
+        if emotion_model is None:
+            return "neutral", 0.0
+
+        inputs = emotion_model.get_inputs()
+        input_names = [i.name for i in inputs]
+        input_types = [i.type for i in inputs]
+
+        # Case 1: string input
+        if len(inputs) == 1 and "string" in input_types[0]:
+            # nhiều model nhận [N] hoặc [N,1]; chọn [1]
+            arr = np.array([text], dtype=object)
+            outputs = emotion_model.run(None, {inputs[0].name: arr})
+        else:
+            # Case 2: BERT-like
+            if toxic_tokenizer is None:
+                # không có tokenizer để sinh ids → fallback
+                return "neutral", 0.0
+
+            input_ids, attention_mask = preprocess_text(text)
+
+            feed = {}
+            # map tên phổ biến
+            name_map = {n.lower(): n for n in input_names}
+            if "input_ids" in name_map:
+                feed[name_map["input_ids"]] = input_ids
+            if "attention_mask" in name_map and attention_mask is not None:
+                feed[name_map["attention_mask"]] = attention_mask
+
+            # nếu model dùng tên khác (e.g., "inputs"), thử bơm input_ids vào input đầu
+            if not feed:
+                feed[inputs[0].name] = input_ids
+
+            outputs = emotion_model.run(None, feed)
+
+        logits = outputs[0][0]
+        # softmax an toàn
+        exp = np.exp(logits - np.max(logits))
+        probs = exp / np.sum(exp)
+        idx = int(np.argmax(probs))
+
+        # ánh xạ label; nếu idx ngoài phạm vi → neutral
+        label = EMOTION_LABELS.get(idx, "neutral")
+        confidence = float(probs[idx]) if 0 <= idx < len(probs) else 0.0
+        return label, round(confidence, 4)
+
+    except Exception as e:
+        print(f"❌ Error predicting emotion: {e}")
+        return "neutral", 0.0
 
 
 @app.route("/api/ai/health", methods=["GET"])
@@ -177,7 +243,7 @@ def health_check():
         "message": "AI Service is running",
         "models": {
             "toxic": toxic_model is not None,
-            "emotion": False  # Tương lai
+            "emotion": emotion_model is not None
         }
     })
 
@@ -312,4 +378,3 @@ if __name__ == "__main__":
     
     # Run app
     app.run(host="0.0.0.0", port=port, debug=False)
-

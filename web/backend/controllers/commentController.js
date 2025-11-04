@@ -79,15 +79,12 @@ exports.createComment = async (req, res, next) => {
       JSON.stringify(aiAnalysis, null, 2)
     );
 
-    // Check if toxic - reject hoặc warning
-    const TOXIC_THRESHOLD = 0.7; // Nếu score > 70% thì reject
-
-    if (aiAnalysis.isToxic && aiAnalysis.toxicScore > TOXIC_THRESHOLD) {
+    // Check nếu nội dung độc hại -> chặn luôn
+    if (aiAnalysis.isToxic === true) {
       return res.status(400).json({
         success: false,
-        message: `Nội dung của bạn có thể chứa ngôn từ không phù hợp (toxic score: ${(
-          aiAnalysis.toxicScore * 100
-        ).toFixed(1)}%). Vui lòng điều chỉnh lại nội dung.`,
+        message:
+          "Nội dung của bạn có thể chứa ngôn từ không phù hợp. Vui lòng điều chỉnh lại nội dung.",
       });
     }
 
