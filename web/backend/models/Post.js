@@ -175,6 +175,8 @@ const postSchema = new mongoose.Schema(
           "enjoyment", // "joy" trong model
           "fear",
           "other", // "neutral" trong model
+          // Backward-compatible: một số dữ liệu cũ/logic cũ dùng "neutral"
+          "neutral",
           "sadness",
           "surprise",
         ],

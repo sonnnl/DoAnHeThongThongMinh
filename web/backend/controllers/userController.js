@@ -18,6 +18,7 @@ const User = require("../models/User");
 const UserFollow = require("../models/UserFollow");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
+const AdminLog = require("../models/AdminLog");
 const dayjs = require("dayjs");
 
 // @desc    Lấy profile user theo username
@@ -700,6 +701,23 @@ exports.adminBanUser = async (req, res, next) => {
     user.restrictions.banReason = reason;
     await user.save();
 
+    // Admin log
+    await AdminLog.createLog({
+      admin: req.user.id,
+      action: "ban_user",
+      targetType: "User",
+      targetId: user._id,
+      description: `Ban user ${
+        user.username || user._id
+      } đến ${banUntil.toLocaleString("vi-VN")}`,
+      reason,
+      severity: "high",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: banUntil,
+      metadata: { days: parseInt(days), bannedUntil: banUntil },
+    });
+
     res.status(200).json({
       success: true,
       message: "Đã ban user",
@@ -737,7 +755,22 @@ exports.adminUnbanUser = async (req, res, next) => {
 
     user.restrictions.bannedUntil = null;
     user.restrictions.banReason = "";
+    // Unban nên bật lại, tránh user vẫn bị hạn chế sau khi gỡ ban
+    user.restrictions.canComment = true;
+    user.restrictions.canPost = true;
     await user.save();
+
+    // Admin log
+    await AdminLog.createLog({
+      admin: req.user.id,
+      action: "unban_user",
+      targetType: "User",
+      targetId: user._id,
+      description: `Gỡ ban user ${user.username || user._id}`,
+      severity: "medium",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
     res.status(200).json({ success: true, message: "Đã gỡ ban user" });
   } catch (error) {

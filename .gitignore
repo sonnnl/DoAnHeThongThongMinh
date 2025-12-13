@@ -79,3 +79,4 @@ coverage/
 .cursor/
 *.onnx
 *.md
+!README.md

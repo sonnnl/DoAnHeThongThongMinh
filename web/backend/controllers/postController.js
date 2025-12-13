@@ -102,7 +102,8 @@ exports.createPost = async (req, res, next) => {
         isToxic: aiAnalysis.isToxic || false,
         toxicScore: aiAnalysis.toxicScore || 0,
         toxicType: aiAnalysis.toxicType || "clean",
-        emotion: aiAnalysis.emotion || "neutral",
+        // Đồng bộ với AI service: label "other" (tương đương "neutral" cũ)
+        emotion: aiAnalysis.emotion || "other",
         emotionScore: aiAnalysis.emotionScore || 0,
         analyzedAt: aiAnalysis.analyzedAt || null,
       },

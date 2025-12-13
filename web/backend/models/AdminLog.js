@@ -65,6 +65,7 @@ const adminLogSchema = new mongoose.Schema(
         "export_data",
 
         // Other
+        "revert_action",
         "other",
       ],
       required: true,
@@ -74,7 +75,16 @@ const adminLogSchema = new mongoose.Schema(
     // Target của action (nếu có)
     targetType: {
       type: String,
-      enum: ["User", "Post", "Comment", "Category", "Report", "System", null],
+      enum: [
+        "User",
+        "Post",
+        "Comment",
+        "Category",
+        "Report",
+        "System",
+        "AdminLog",
+        null,
+      ],
     },
     targetId: {
       type: mongoose.Schema.Types.ObjectId,

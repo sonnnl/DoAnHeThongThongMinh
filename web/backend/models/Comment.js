@@ -107,12 +107,15 @@ const commentSchema = new mongoose.Schema(
         enum: [
           "anger",
           "disgust",
-          "enjoyment",  // "joy" trong model
+          "enjoyment", // "joy" trong model
           "fear",
-          "other",      // "neutral" trong model
+          "other", // "neutral" trong model
           "sadness",
           "surprise",
+          // Backward-compatible: dữ liệu cũ/logic cũ có thể dùng "neutral"
+          "neutral",
         ],
+        // Đồng bộ với AI service: label "other" (tương đương "neutral" cũ)
         default: "other",
       },
       confidence: {
