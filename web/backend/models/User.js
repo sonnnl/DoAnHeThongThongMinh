@@ -151,7 +151,7 @@ const userSchema = new mongoose.Schema(
       },
       canPost: {
         type: Boolean,
-        default: false, // Phải đăng ký đủ 1 tiếng và comment 3 lần mới được post
+        default: true,
       },
       bannedUntil: {
         type: Date,
@@ -323,6 +323,9 @@ userSchema.methods.updateBadge = function () {
 
 // Method: Kiểm tra có thể post không
 userSchema.methods.canCreatePost = function () {
+  if (this.role === "admin" || this.role === "moderator") {
+    return { allowed: true };
+  }
   // Phải đăng ký đủ 1 tiếng
   const oneHourInMs = 60 * 60 * 1000;
   const timeSinceRegistration = Date.now() - this.registeredAt.getTime();

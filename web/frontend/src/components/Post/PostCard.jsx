@@ -91,7 +91,12 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
             {post.category && (
               <Link
                 to={`/c/${post.category.slug}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mb-2 border shadow-sm transition-colors bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mb-2 border shadow-sm transition-all duration-200 hover:brightness-110"
+                style={{
+                  backgroundColor: `${post.category.color}15`,
+                  color: post.category.color,
+                  borderColor: `${post.category.color}33`,
+                }}
                 title={`Chuyên mục: ${post.category.name}`}
               >
                 <FiTag className="text-[14px]" />

@@ -40,12 +40,23 @@ const Categories = () => {
             <div className="card-body">
               <div className="flex items-start gap-3">
                 <div className="avatar placeholder">
-                  <div className="bg-primary text-primary-content rounded-lg w-12">
+                  <div 
+                    className="rounded-lg w-12 flex items-center justify-center"
+                    style={{
+                      backgroundColor: `${category.color}20`,
+                      color: category.color,
+                    }}
+                  >
                     <FiFolder className="text-2xl" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="card-title text-lg">{category.name}</h3>
+                  <h3 
+                    className="card-title text-lg"
+                    style={{ color: category.color }}
+                  >
+                    {category.name}
+                  </h3>
                   {category.description && (
                     <p className="text-sm text-base-content/60 line-clamp-2 mt-1">
                       {category.description}
