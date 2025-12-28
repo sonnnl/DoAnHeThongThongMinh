@@ -9,6 +9,16 @@ import { useQuery, useMutation } from "react-query";
 import { postsAPI } from "../../services/api";
 import toast from "react-hot-toast";
 import Loading from "../../components/UI/Loading";
+import { FiTag, FiX } from "react-icons/fi";
+
+const MAX_TAGS = 6;
+const MAX_TAG_LENGTH = 30;
+const sanitizeTag = (value) =>
+  value
+    .trim()
+    .replace(/^#/, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
 
 const EditPost = () => {
   const { postId } = useParams();
@@ -29,7 +39,10 @@ const EditPost = () => {
         setFormData({
           title: data.data.title,
           content: data.data.content,
-          tags: data.data.tags || [],
+          tags:
+            data.data.tags
+              ?.map((tag) => sanitizeTag(tag))
+              .filter((tag) => Boolean(tag)) || [],
         });
       },
     }
@@ -70,10 +83,21 @@ const EditPost = () => {
   };
 
   const handleAddTag = () => {
-    const value = tagInput.trim();
-    if (!value) return;
-    if (formData.tags.includes(value)) return;
-    setFormData({ ...formData, tags: [...formData.tags, value] });
+    const normalized = sanitizeTag(tagInput);
+    if (!normalized) return;
+    if (normalized.length > MAX_TAG_LENGTH) {
+      toast.error(`Tag tối đa ${MAX_TAG_LENGTH} ký tự`);
+      return;
+    }
+    if (formData.tags.includes(normalized)) {
+      setTagInput("");
+      return;
+    }
+    if (formData.tags.length >= MAX_TAGS) {
+      toast.error(`Bạn chỉ được thêm tối đa ${MAX_TAGS} tag`);
+      return;
+    }
+    setFormData({ ...formData, tags: [...formData.tags, normalized] });
     setTagInput("");
   };
 
@@ -110,7 +134,12 @@ const EditPost = () => {
         {/* Tags */}
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-semibold">Tags</span>
+            <div>
+              <span className="label-text font-semibold">Tags</span>
+              <span className="label-text-alt text-base-content/60 block">
+                Tối đa {MAX_TAGS} tag · auto chữ thường, Enter/dấu phẩy để thêm
+              </span>
+            </div>
           </label>
           <div className="flex gap-2">
             <input
@@ -118,13 +147,14 @@ const EditPost = () => {
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" || e.key === ",") {
                   e.preventDefault();
                   handleAddTag();
                 }
               }}
               placeholder="Nhập tag và nhấn Enter"
               className="input input-bordered flex-1"
+              maxLength={MAX_TAG_LENGTH + 5}
             />
             <button
               type="button"
@@ -137,15 +167,21 @@ const EditPost = () => {
           {formData.tags?.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {formData.tags.map((tag) => (
-                <div key={tag} className="badge badge-lg gap-2">
-                  #{tag}
+                <div
+                  key={tag}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-base-300 bg-base-200 text-sm shadow-sm"
+                >
+                  <FiTag className="text-primary" />
+                  <span className="font-medium text-base-content">
+                    #{tag}
+                  </span>
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="btn btn-ghost btn-xs"
+                    className="btn btn-ghost btn-xs btn-circle"
                     aria-label={`Xóa tag ${tag}`}
                   >
-                    ✕
+                    <FiX />
                   </button>
                 </div>
               ))}

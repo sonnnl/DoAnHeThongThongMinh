@@ -24,6 +24,36 @@ const Vote = require("../models/Vote");
 const Comment = require("../models/Comment");
 const slugify = require("slugify");
 
+const normalizeTags = (rawTags) => {
+  if (!rawTags) return [];
+
+  const tagsArray = Array.isArray(rawTags)
+    ? rawTags
+    : String(rawTags).split(/[,;\n]/);
+
+  const unique = new Set();
+  const normalized = [];
+
+  tagsArray.forEach((tag) => {
+    const cleaned = tag
+      ?.toString()
+      .trim()
+      .replace(/^#/, "")
+      .replace(/\s+/g, "-")
+      .toLowerCase();
+
+    if (!cleaned) return;
+    if (cleaned.length > 50) return;
+    if (unique.has(cleaned)) return;
+    if (normalized.length >= 8) return;
+
+    unique.add(cleaned);
+    normalized.push(cleaned);
+  });
+
+  return normalized;
+};
+
 // @desc    Tạo bài viết mới
 // @route   POST /api/posts
 // @access  Private
@@ -89,6 +119,8 @@ exports.createPost = async (req, res, next) => {
       });
     }
 
+    const normalizedTags = normalizeTags(tags);
+
     // Tạo post
     const post = await Post.create({
       title,
@@ -97,7 +129,7 @@ exports.createPost = async (req, res, next) => {
       author: req.user.id,
       category,
       media: { images, videos },
-      tags: tags || [],
+      tags: normalizedTags,
       aiAnalysis: {
         isToxic: aiAnalysis.isToxic || false,
         toxicScore: aiAnalysis.toxicScore || 0,
@@ -427,7 +459,9 @@ exports.updatePost = async (req, res, next) => {
     // Update fields
     if (title) post.title = title;
     if (content) post.content = content;
-    if (tags) post.tags = tags;
+    if (typeof tags !== "undefined") {
+      post.tags = normalizeTags(tags);
+    }
     if (mediaFiles) {
       const images = (mediaFiles || [])
         .filter((m) => (m.type || m.resourceType) === "image")

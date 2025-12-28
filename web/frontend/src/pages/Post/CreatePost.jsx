@@ -8,7 +8,12 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "react-query";
 import { postsAPI, categoriesAPI, uploadAPI } from "../../services/api";
 import toast from "react-hot-toast";
-import { FiImage, FiVideo, FiX } from "react-icons/fi";
+import { FiImage, FiVideo, FiX, FiTag } from "react-icons/fi";
+
+const MAX_TAGS = 6;
+const MAX_TAG_LENGTH = 30;
+const sanitizeTag = (value) =>
+  value.trim().replace(/^#/, "").replace(/\s+/g, "-").toLowerCase();
 
 const CreatePost = () => {
   const navigate = useNavigate();
@@ -72,13 +77,26 @@ const CreatePost = () => {
   };
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, tagInput.trim()],
-      });
-      setTagInput("");
+    const normalized = sanitizeTag(tagInput);
+    if (!normalized) return;
+    if (normalized.length > MAX_TAG_LENGTH) {
+      toast.error(`Tag tối đa ${MAX_TAG_LENGTH} ký tự`);
+      return;
     }
+    if (formData.tags.includes(normalized)) {
+      setTagInput("");
+      return;
+    }
+    if (formData.tags.length >= MAX_TAGS) {
+      toast.error(`Bạn chỉ được thêm tối đa ${MAX_TAGS} tag`);
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      tags: [...formData.tags, normalized],
+    });
+    setTagInput("");
   };
 
   const handleRemoveTag = (tagToRemove) => {
@@ -383,21 +401,27 @@ const CreatePost = () => {
         {/* Tags */}
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-semibold">Tags</span>
+            <div>
+              <span className="label-text font-semibold">Tags</span>
+              <span className="label-text-alt text-base-content/60 block">
+                Tối đa {MAX_TAGS} tag, gõ Enter hoặc dấu phẩy để thêm
+              </span>
+            </div>
           </label>
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Nhập tag..."
+              placeholder="Nhập tag (Enter hoặc dấu phẩy để thêm)"
               className="input input-bordered flex-1"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === ",") {
                   e.preventDefault();
                   handleAddTag();
                 }
               }}
+              maxLength={MAX_TAG_LENGTH + 5}
             />
             <button
               type="button"
@@ -412,14 +436,19 @@ const CreatePost = () => {
           {formData.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {formData.tags.map((tag, index) => (
-                <div key={index} className="badge badge-primary gap-2">
-                  {tag}
+                <div
+                  key={index}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-base-300 bg-base-200 text-sm shadow-sm"
+                >
+                  <FiTag className="text-primary" />
+                  <span className="font-medium text-base-content">#{tag}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="text-xl"
+                    className="btn btn-ghost btn-xs btn-circle"
+                    aria-label={`Xóa tag ${tag}`}
                   >
-                    ×
+                    <FiX />
                   </button>
                 </div>
               ))}

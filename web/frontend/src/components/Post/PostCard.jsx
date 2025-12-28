@@ -120,6 +120,27 @@ const PostCard = ({ post, hideVoteButtons = false }) => {
               </p>
             )}
 
+            {post.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {post.tags.slice(0, 4).map((tag, index) => (
+                  <Link
+                    key={`${tag}-${index}`}
+                    to={`/search?q=${encodeURIComponent(tag)}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-base-300 bg-base-200 text-[12px] font-medium hover:bg-primary/10 hover:text-primary transition-colors"
+                    title={`Xem các bài với tag #${tag}`}
+                  >
+                    <FiTag className="text-primary" />
+                    <span>#{tag}</span>
+                  </Link>
+                ))}
+                {post.tags.length > 4 && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-base-200 text-[12px] text-base-content/70 border border-dashed border-base-300">
+                    +{post.tags.length - 4}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Emotion Message (chỉ hiển thị cho author) */}
             {emotionMessage && (
               <div className={`alert ${emotionClass || 'alert-info'} mb-2 border-l-4 py-2`}>

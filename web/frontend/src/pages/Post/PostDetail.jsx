@@ -444,9 +444,15 @@ const PostDetail = () => {
               {post.tags && post.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-6">
                   {post.tags.map((tag, index) => (
-                    <span key={index} className="badge badge-outline">
-                      #{tag}
-                    </span>
+                    <Link
+                      key={index}
+                      to={`/search?q=${encodeURIComponent(tag)}`}
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-base-300 bg-base-200 text-sm shadow-sm hover:bg-primary/10 hover:text-primary transition-colors"
+                      title={`Xem bài viết với tag #${tag}`}
+                    >
+                      <FiTag className="text-primary" />
+                      <span className="font-medium">#{tag}</span>
+                    </Link>
                   ))}
                 </div>
               )}
