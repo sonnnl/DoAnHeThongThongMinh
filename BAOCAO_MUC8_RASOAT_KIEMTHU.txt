@@ -1,0 +1,134 @@
+8. RÀ SOÁT VÀ KIỂM THỬ
+
+8.1. Rà soát
+
+8.1.1. Mục tiêu theo Verification & Validation (V&V)
+Theo nội dung môn học, “làm đúng” là tạo ra sản phẩm làm hài lòng người sử dụng. Sản phẩm không đúng có thể thuộc các trường hợp:
+- Không thoả mãn hết mọi yêu cầu đầu vào
+- Có mâu thuẫn với yêu cầu
+- Không dùng được / trải nghiệm kém
+
+Trong kỹ nghệ phần mềm, để đảm bảo sản phẩm đúng, nhóm thực hiện hai hành động chính:
+- Verification (Kiểm chứng): Xem xét cách làm (cách tạo ra các ấn phẩm đúng) để tin rằng quy trình/giải pháp sẽ tạo ra sản phẩm đúng.
+- Validation (Thẩm định): Xem xét sản phẩm (đầu ra) để tin rằng sản phẩm đã thoả mãn hoàn toàn mong đợi.
+
+Hai hoạt động V&V được thực hiện thông qua việc dò vết (tracing) giữa yêu cầu – thiết kế – triển khai – kiểm thử. Đồng thời, các hành động kiểm định (V&V) phải “đúng” (được chứng minh), ví dụ: test-case phải được chứng minh là phù hợp và đúng kỳ vọng trước khi dùng để kiểm thử.
+
+8.1.2. Dò vết (Tracing) yêu cầu → hiện thực → kiểm thử
+Nhóm áp dụng dò vết nhằm đảm bảo mỗi chức năng/nhu cầu quan trọng đều có minh chứng:
+- Yêu cầu chức năng (use case): đăng nhập Google, đăng bài, bình luận, vote, nhắn tin, thông báo, quản trị (nếu có)…
+  → API endpoints (routes/controllers/middleware)
+  → Model/Schema MongoDB và các ràng buộc dữ liệu (unique, required, minlength, soft delete, index)
+  → Test-case và minh chứng kiểm thử (Postman/Jest/JestDB/ZAP/Compass Explain Plan).
+
+Việc dò vết giúp:
+- Tránh thiếu chức năng hoặc sai luồng
+- Tránh mâu thuẫn giữa các yêu cầu và triển khai
+- Giảm rủi ro “không dùng được” do lỗi ở các tình huống biên (edge cases)
+
+8.1.3. Các kỹ thuật rà soát đã áp dụng (Verification)
+Trong quá trình phát triển, nhóm áp dụng các kỹ thuật rà soát sau:
+
+(1) Rà soát tĩnh (Static review) kết hợp kiểm tra tự động bằng ESLint
+- Mục tiêu: phát hiện sớm lỗi coding phổ biến (unused variables, sai cú pháp, sai pattern async, sai quy ước), chuẩn hoá chất lượng code.
+- Kết quả mong đợi: giảm lỗi runtime, tăng tính nhất quán khi làm việc nhóm.
+
+(2) Rà soát tính nhất quán hợp đồng API (API contract)
+- Mục tiêu: đảm bảo cấu trúc response/error nhất quán giữa các endpoints (success/message/data), tránh frontend xử lý sai do response thay đổi.
+- Nội dung rà soát: status code đúng ngữ nghĩa (200/201/400/401/403/404/500), message rõ ràng, dữ liệu trả về đúng định dạng.
+
+(3) Rà soát mô hình dữ liệu & ràng buộc (Schema/Index review)
+- Mục tiêu: đảm bảo MongoDB schema thể hiện đúng yêu cầu nghiệp vụ:
+  + Unique: email/username/googleId, slug bài viết…
+  + Validation: minlength/maxlength, required…
+  + Soft delete: isDeleted, deletedAt…
+  + Index: phục vụ truy vấn nhanh theo slug, conversationId, recipient+isRead…
+
+(4) Rà soát bảo mật ở mức cấu hình (Security configuration review)
+- Mục tiêu: hạn chế các rủi ro phổ biến:
+  + CORS đúng origin/credentials
+  + Security headers (helmet)
+  + NoSQL injection (mongo-sanitize)
+  + Xác thực và phân quyền đúng (middleware auth)
+
+8.1.4. Chứng minh tính đúng đắn của test-case trước khi sử dụng kiểm thử
+Nhóm xây dựng test-case theo cấu trúc chuẩn:
+- Mục tiêu kiểm thử
+- Dữ liệu vào (input)
+- Các bước thực hiện
+- Kết quả mong đợi (expected: status code, message, shape dữ liệu, constraint DB…)
+
+Với các kịch bản quan trọng (auth, post, comment, vote, message, notification), test-case được xác định rõ điều kiện hợp lệ/không hợp lệ, cũng như tiêu chí PASS/FAIL. Đối với DB constraint, dùng minh chứng cụ thể như mã lỗi duplicate key (E11000) khi vi phạm unique.
+
+
+8.2. Kiểm thử
+
+8.2.1. Mục tiêu kiểm thử (Validation)
+Hoạt động kiểm thử nhằm thẩm định sản phẩm theo các tiêu chí:
+- Chức năng hoạt động đúng theo yêu cầu (đúng luồng, đúng dữ liệu, đúng quyền)
+- Hệ thống ổn định trước dữ liệu lỗi/thiếu (input validation, error handling)
+- Dữ liệu trong DB đảm bảo đúng ràng buộc (unique/validation/soft delete)
+- Bảo mật cơ bản đạt mức chấp nhận được (baseline security scan)
+- Hiệu năng truy vấn hợp lý, ưu tiên dùng index cho truy vấn quan trọng
+
+8.2.2. Công cụ và phương pháp kiểm thử đã sử dụng
+
+(1) Kiểm thử API thủ công bằng Postman
+- Mục tiêu: kiểm thử nhanh các endpoints theo kịch bản người dùng.
+- Nội dung: auth, posts, comments, votes, messages, notifications… (tuỳ theo module).
+- Minh chứng: kết quả response (status code, body) và bộ sưu tập request (collection) nếu có.
+
+(2) Kiểm thử tự động backend bằng Jest + Supertest
+- Mục tiêu: kiểm thử tự động các API endpoints (route/controller/middleware).
+- Nội dung tiêu biểu:
+  + Authentication: Google OAuth, lấy thông tin người dùng hiện tại (me)…
+  + Posts: tạo bài, xoá bài theo quyền, lấy danh sách…
+  + Comments: tạo bình luận và logic kèm theo (ví dụ cập nhật stats, tạo notification)
+  + Votes: upvote/hủy upvote, kiểm tra kết quả stats
+  + Messages: gửi tin nhắn, cập nhật conversation
+  + Notifications: lấy danh sách thông báo chưa đọc
+- Minh chứng: kết quả chạy test PASS/FAIL và báo cáo coverage.
+
+(3) Kiểm thử cơ sở dữ liệu (Database Testing) bằng JestDB (mongodb-memory-server)
+- Mục tiêu: kiểm thử trực tiếp tầng Model/DB với MongoDB thật (in-memory), không mock.
+- Công cụ: mongodb-memory-server + Jest config riêng.
+- Nội dung kiểm thử:
+  + Unique Validation: chặn tạo 2 tài khoản trùng email, trùng username
+  + Unique slug: chặn tạo 2 bài viết trùng slug
+  + Schema validation: kiểm tra ràng buộc minlength/required ở Post/User…
+- Cách chạy:
+  + npm test            (bộ test API/unit dùng mock)
+  + npm run test:db     (bộ DB integration tests tách riêng)
+- Minh chứng: output PASS của test:db và mã lỗi E11000 khi vi phạm unique.
+
+(4) Kiểm thử và tối ưu hiệu năng truy vấn bằng MongoDB Compass (Explain Plan)
+- Mục tiêu: kiểm tra các truy vấn quan trọng có dùng index (IXSCAN) hay không.
+- Cách thực hiện:
+  1) Kết nối DB bằng MongoDB Compass
+  2) Chọn collection cần kiểm tra (posts, notifications, directmessages, conversations…)
+  3) Dùng Explain Plan/Explain trong Aggregations để xem Winning Plan
+  4) Kỳ vọng: IXSCAN cho các truy vấn lọc/tìm theo khoá chính hoặc khoá index
+- Ý nghĩa:
+  + IXSCAN: truy vấn đã tối ưu theo index
+  + COLLSCAN: cần bổ sung index hoặc tối ưu pipeline ($match trước $sort/$lookup) để tránh quá tải RAM.
+- Minh chứng: screenshot Explain Plan thể hiện IXSCAN và danh sách index tương ứng.
+
+(5) Kiểm thử bảo mật bằng OWASP ZAP Baseline Scan (Docker)
+- Mục tiêu: kiểm thử bảo mật tự động mức baseline để phát hiện vấn đề cấu hình/endpoint phổ biến.
+- Cách thực hiện (minh chứng lệnh chạy):
+  docker run -v %cd%:/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://192.168.1.20:5173 -r report.html
+- Kết quả:
+  + report.html: tổng hợp cảnh báo (alert), mức độ, mô tả và URL liên quan.
+- Cách sử dụng:
+  + Phân loại cảnh báo: false positive / cần khắc phục
+  + Đề xuất cải tiến: security headers, cấu hình CORS, hạn chế endpoint nhạy cảm, kiểm tra auth cho route private…
+
+8.2.3. Đánh giá mức độ bao phủ kiểm thử
+Hệ thống được kiểm thử theo nhiều lớp để đảm bảo tính đúng đắn và tin cậy:
+- Lớp API/Controller: Postman (manual) + Jest/Supertest (automated)
+- Lớp dữ liệu/DB: JestDB (mongodb-memory-server) chứng minh unique/validation/constraint
+- Hiệu năng truy vấn: MongoDB Compass Explain Plan (IXSCAN) cho truy vấn trọng yếu
+- Bảo mật: OWASP ZAP baseline scan (Docker) và báo cáo HTML
+
+Nhờ kết hợp các phương pháp trên, kết quả kiểm thử vừa thể hiện Verification (đúng cách làm) vừa Validation (đúng sản phẩm), đáp ứng mục tiêu môn học về V&V và tracing.
+

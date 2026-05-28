@@ -1,0 +1,123 @@
+BẢNG RÀ SOÁT INDEX & EXPLAIN PLAN (MongoDB)
+
+Ghi chú:
+- “Trạng thái truy vấn (Explain Plan)” trong bảng dưới đây là KỲ VỌNG khi kiểm tra bằng MongoDB Compass.
+- Khi làm báo cáo, sinh viên chạy Explain Plan và thay “Kỳ vọng” bằng “Thực tế”, kèm screenshot minh chứng.
+
+---------------------------------------------------------------------------------------------------------------
+Tên Collection | Trường dữ liệu rà soát                         | Loại Index áp dụng
+              |                                                  | Trạng thái truy vấn (Explain Plan)
+              |                                                  | Đánh giá / Hướng tối ưu
+---------------------------------------------------------------------------------------------------------------
+
+1) posts
+- Trường dữ liệu rà soát:
+  - slug
+- Loại Index áp dụng:
+  - Single index UNIQUE: { slug: 1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: Post.findOne({ slug, isDeleted: false })
+  - Kỳ vọng: IXSCAN (slug_1) + FETCH (lọc isDeleted có thể ở fetch)
+- Đánh giá / Hướng tối ưu:
+  - Nếu Compass cho COLLSCAN: cần đảm bảo index slug tồn tại và đúng collection.
+  - Nếu query luôn kèm isDeleted=false: cân nhắc compound { slug: 1, isDeleted: 1 } (thường không bắt buộc vì slug rất chọn lọc).
+
+2) posts
+- Trường dữ liệu rà soát:
+  - category, isDeleted, createdAt / score (tuỳ sort)
+- Loại Index áp dụng:
+  - (Khuyến nghị) Compound index theo pattern query:
+    - Hot: { category: 1, isDeleted: 1, score: -1, createdAt: -1 }
+    - New: { category: 1, isDeleted: 1, createdAt: -1 }
+    - Top: { category: 1, isDeleted: 1, "stats.upvotes": -1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: Post.find(query).sort(sortQuery).skip().limit()
+  - Kỳ vọng: IXSCAN trên compound index tương ứng + SORT được “covered” hoặc giảm cost
+- Đánh giá / Hướng tối ưu:
+  - Nếu SORT stage dùng nhiều RAM / có COLLSCAN: cần index phù hợp với filter + sort.
+  - Đảm bảo $match/filter đặt trước sort (đối với aggregation) và tránh sort trên field không index khi dữ liệu lớn.
+
+3) votes
+- Trường dữ liệu rà soát:
+  - user, targetType, targetId
+- Loại Index áp dụng:
+  - (Khuyến nghị) Compound index: { user: 1, targetType: 1, targetId: 1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: Vote.find({ user, targetType: "Post", targetId: { $in: postIds } })
+  - Kỳ vọng: IXSCAN (compound) + IN lookup hiệu quả
+- Đánh giá / Hướng tối ưu:
+  - Nếu query vote-status chạy thường xuyên (feed), index này giúp giảm độ trễ rõ rệt.
+
+4) savedposts (hoặc collection save tương ứng)
+- Trường dữ liệu rà soát:
+  - user, post, createdAt
+- Loại Index áp dụng:
+  - (Khuyến nghị) Compound index: { user: 1, post: 1 } (để kiểm tra đã save)
+  - (Khuyến nghị) Compound index: { user: 1, createdAt: -1 } (list saved sort newest)
+- Trạng thái truy vấn (Explain Plan):
+  - Query: SavedPost.find({ user: req.user.id, post: { $in: postIds } })
+  - Query: SavedPost.find({ user: req.user.id }).sort({ createdAt: -1 })
+  - Kỳ vọng: IXSCAN
+- Đánh giá / Hướng tối ưu:
+  - Nếu list saved có sort, cần index user+createdAt để tránh SORT tốn RAM.
+
+5) notifications
+- Trường dữ liệu rà soát:
+  - recipient, isRead, createdAt, type
+- Loại Index áp dụng (đã khai báo trong model):
+  - Compound: { recipient: 1, createdAt: -1 }
+  - Compound: { recipient: 1, isRead: 1, createdAt: -1 }
+  - Compound: { type: 1, recipient: 1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: Notification.find({ recipient }).sort({ createdAt: -1 })
+    - Kỳ vọng: IXSCAN (recipient_1_createdAt_-1)
+  - Query: Notification.find({ recipient, isRead: false }).sort({ createdAt: -1 })
+    - Kỳ vọng: IXSCAN (recipient_1_isRead_1_createdAt_-1)
+  - Query: Notification.countDocuments({ recipient, isRead: false })
+    - Kỳ vọng: IXSCAN (recipient_1_isRead_1_createdAt_-1 hoặc recipient+isRead)
+- Đánh giá / Hướng tối ưu:
+  - Nếu Compass báo COLLSCAN: kiểm tra index có được tạo thực tế trong DB (Compass → Indexes).
+  - Với countDocuments unread, index recipient+isRead giúp tăng tốc.
+
+6) conversations
+- Trường dữ liệu rà soát:
+  - participants.user, isDeleted, lastActivityAt
+- Loại Index áp dụng (đã khai báo trong model):
+  - Compound: { "participants.user": 1, lastActivityAt: -1 }
+  - Single: { lastActivityAt: -1 }
+  - Single: { isDeleted: 1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: Conversation.find({ "participants.user": userId, isDeleted: false })
+           .sort({ lastActivityAt: -1 })
+  - Kỳ vọng: IXSCAN ("participants.user"_1_lastActivityAt_-1) + FILTER isDeleted (hoặc dùng thêm index hỗ trợ)
+- Đánh giá / Hướng tối ưu:
+  - Nếu thường xuyên lọc isDeleted=false: cân nhắc compound { "participants.user": 1, isDeleted: 1, lastActivityAt: -1 }.
+
+7) directmessages
+- Trường dữ liệu rà soát:
+  - conversation, createdAt
+- Loại Index áp dụng:
+  - Hiện có: { conversation: 1 } (field index: true)
+  - (Khuyến nghị) Compound: { conversation: 1, createdAt: -1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: DirectMessage.find({ conversation }).sort({ createdAt: -1 })
+  - Kỳ vọng: IXSCAN (conversation_1_createdAt_-1) để tránh SORT tốn RAM
+- Đánh giá / Hướng tối ưu:
+  - Nếu Compass cho SORT stage nặng: thêm compound index conversation+createdAt.
+
+8) users
+- Trường dữ liệu rà soát:
+  - email, username, googleId
+- Loại Index áp dụng (đã khai báo trong schema):
+  - UNIQUE: { email: 1 }, UNIQUE: { username: 1 }, UNIQUE sparse: { googleId: 1 }
+- Trạng thái truy vấn (Explain Plan):
+  - Query: User.findOne({ email }) / User.findOne({ username }) / User.findOne({ googleId })
+  - Kỳ vọng: IXSCAN theo index tương ứng
+- Đánh giá / Hướng tối ưu:
+  - Đây là nhóm truy vấn trọng yếu cho đăng nhập/định danh người dùng, bắt buộc có index.
+
+---------------------------------------------------------------------------------------------------------------
+Kết luận:
+- Các truy vấn trọng yếu (tìm theo slug, lấy notifications unread, load conversations/messages) nên đạt IXSCAN.
+- Khi gặp COLLSCAN hoặc SORT tốn RAM, ưu tiên: (1) bổ sung compound index theo filter + sort, (2) tối ưu pipeline để $match sớm.
+
