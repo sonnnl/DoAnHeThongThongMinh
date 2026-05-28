@@ -23,7 +23,7 @@ const Notifications = () => {
 
   // Fetch notifications
   const { data, isLoading, error } = useQuery("notifications", () =>
-    notificationsAPI.getNotifications()
+    notificationsAPI.getNotifications(),
   );
   // Mark as read mutation
   const markAsReadMutation = useMutation(
@@ -32,7 +32,7 @@ const Notifications = () => {
       onSuccess: () => {
         queryClient.invalidateQueries("notifications");
       },
-    }
+    },
   );
 
   // Mark all as read mutation
@@ -44,9 +44,9 @@ const Notifications = () => {
         queryClient.invalidateQueries("notifications");
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || "Thất bại");
+        toast.error(error.response?.data?.message || "Failed");
       },
-    }
+    },
   );
 
   // Delete notification mutation
@@ -60,7 +60,7 @@ const Notifications = () => {
       onError: (error) => {
         toast.error(error.response?.data?.message || "Xóa thất bại");
       },
-    }
+    },
   );
 
   const getNotificationIcon = (type) => {
@@ -168,7 +168,7 @@ const Notifications = () => {
                           !notification.link.includes("?")
                             ? `/messages?conversation=${notification.link.replace(
                                 "/messages/",
-                                ""
+                                "",
                               )}`
                             : notification.link
                         }
