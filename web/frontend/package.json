@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext js,jsx --fix"
+    "lint:fix": "eslint . --ext js,jsx --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@react-oauth/google": "^0.12.2",
@@ -35,15 +37,22 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^4.1.8",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.32",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^4.1.8"
   }
 }

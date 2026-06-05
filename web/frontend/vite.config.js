@@ -1,7 +1,9 @@
 /**
  * FILE: web/frontend/vite.config.js
- * MỤC ĐÍCH: Cấu hình Vite cho React app
+ * MỤC ĐÍCH: Cấu hình Vite và Vitest cho React app
  */
+
+/// <reference types="vitest" />
 
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -34,5 +36,10 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: "./src/setupTests.js",
   },
 });

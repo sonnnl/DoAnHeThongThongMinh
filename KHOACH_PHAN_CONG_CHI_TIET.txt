@@ -1,0 +1,218 @@
+================================================================================
+KẾ HOẠCH PHÂN CÔNG CÔNG VIỆC VÀ KỊCH BẢN THUYẾT TRÌNH CHI TIẾT
+ĐỒ ÁN: DIỄN ĐÀN THẢO LUẬN TRỰC TUYẾN TÍCH HỢP AI (SMART DISCUSSION FORUM)
+================================================================================
+
+Dự án được phân chia theo mô hình cân bằng:
+- 02 Thành viên phát triển Backend (Trưởng nhóm + Thành viên 2)
+- 02 Thành viên phát triển Frontend (Thành viên 3 + Thành viên 4)
+
+Dưới đây là bảng phân công chi tiết, cách thực hiện và nội dung thuyết trình 
+dành cho từng thành viên để đảm bảo ai cũng có thể nắm rõ và bảo vệ thành công.
+
+--------------------------------------------------------------------------------
+MỤC LỤC
+--------------------------------------------------------------------------------
+1. BẢNG TỔNG QUAN PHÂN CHIA VAI TRÒ
+2. CHI TIẾT PHÂN CÔNG & HƯỚNG DẪN THUYẾT TRÌNH TỪNG THÀNH VIÊN
+   2.1. TRƯỞNG NHÓM (Thành viên 1): Backend Lead, AI & Rà soát (QA)
+   2.2. THÀNH VIÊN 2 (Backend 2): Backend dev, Phân tích nghiệp vụ & Kiểm thử DB
+   2.3. THÀNH VIÊN 3 (Frontend 1): Frontend UI dev & Kiểm thử FE/BE
+   2.4. THÀNH VIÊN 4 (Frontend 2): Frontend UI dev & Nhúng API/WebSocket
+3. KẾ HOẠCH PHỐI HỢP & LUỒNG TÍCH HỢP CHUNG (TIMELINE)
+
+================================================================================
+1. BẢNG TỔNG QUAN PHÂN CHIA VAI TRÒ
+================================================================================
+
++-------------+-------------+--------------------------------------------------+
+| Thành viên  | Phân vai    | Hạng mục công việc chính                         |
++-------------+-------------+--------------------------------------------------+
+| 1. Trưởng   | Backend +   | - Xây dựng Core Backend API & Security           |
+|    nhóm     | AI Lead +   | - Huấn luyện & Tích hợp AI (Toxic/Emotion)       |
+|    (USER)   | Rà soát     | - Rà soát code, kiểm duyệt bảo mật toàn hệ thống |
++-------------+-------------+--------------------------------------------------+
+| 2. Thành    | Backend +   | - Viết API phụ (Admin, Messages)                 |
+|    viên 2   | Nghiệp vụ + | - Viết tài liệu Nghiệp vụ & Vẽ toàn bộ sơ đồ UML |
+|              | Kiểm thử DB | - Viết bộ kiểm thử DB (MongoDB memory server,    |
+|             |             |   Explain Plan index trong MongoDB Compass)       |
++-------------+-------------+--------------------------------------------------+
+| 3. Thành    | Frontend +  | - Phát triển giao diện & logic Core Frontend     |
+|    viên 3   | Kiểm thử    |   (Home, Post Detail, Comment, Profile, Vote UI) |
+|             | FE & BE     | - Viết bộ Unit Test Frontend (Jest/React Test)   |
+|             |             | - Viết bộ Integration Test Backend (Supertest)   |
++-------------+-------------+--------------------------------------------------+
+| 4. Thành    | Frontend +  | - Phát triển giao diện phụ (Dashboard Admin,     |
+|    viên 4   | Nhúng API   |   Chat Messages UI, Notification UI, Search UI)  |
+|             |             | - Nhúng API Axios, xử lý tự động refresh token   |
+|             |             | - Thiết lập Socket.io Client cho chat/notify     |
++-------------+-------------+--------------------------------------------------+
+
+================================================================================
+2. CHI TIẾT PHÂN CÔNG & HƯỚNG DẪN THUYẾT TRÌNH TỪNG THÀNH VIÊN
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. TRƯỞNG NHÓM (THÀNH VIÊN 1) - BACKEND LEAD, AI & RÀ SOÁT (QA)
+--------------------------------------------------------------------------------
+
+A. Nội dung công việc cụ thể:
+1. Xây dựng cấu trúc khung mã nguồn Backend (Node.js/Express.js) tại `web/backend/`.
+2. Thiết kế và cấu hình bảo mật hệ thống: JWT Authentication (cấp Access Token ngắn hạn và Refresh Token dài hạn), mã hóa mật khẩu bằng bcrypt, chống tấn công Brute Force bằng Rate Limiter, bảo vệ HTTP headers bằng Helmet, xử lý CORS.
+3. Huấn luyện các mô hình AI:
+   - Toxic & Spam Detection: Nhận dạng bài đăng/bình luận chứa từ ngữ thô tục, xúc phạm hoặc tin nhắn rác. Gắn cờ vi phạm tự động.
+   - Emotion Analysis: Nhận diện cảm xúc (Vui, Buồn, Phẫn nộ, Trung lập) của nội dung bài viết và comment.
+4. Xây dựng luồng tích hợp AI bất đồng bộ vào Backend (khi user post bài, gọi AI phân tích và lưu nhãn cảm xúc hoặc chặn cảnh báo toxic).
+5. Rà soát chất lượng code (Code Review), kiểm duyệt các PR (Pull Request), fix các bug logic phức tạp và tối ưu hóa hiệu năng tổng thể.
+
+B. Hướng dẫn cách thực hiện kỹ thuật:
+- Sử dụng Express.js để định tuyến routes và quản lý middlewares.
+- Mô hình AI được huấn luyện bằng Python (hoặc Node-nlp) dựa trên bộ dataset có sẵn trong thư mục `ai/toxics/` (7k+ mẫu) và `ai/emotions/` (1k+ mẫu). Sau đó đóng gói thành một service/endpoint riêng để Backend NodeJS gọi qua REST API.
+- Sử dụng Winston làm thư viện log để ghi lại nhật ký lỗi hệ thống hỗ trợ rà soát.
+
+C. Kịch bản thuyết trình (Nói gì trước hội đồng):
+- "Kính thưa Hội đồng, em phụ trách xây dựng kiến trúc nền tảng Backend và tích hợp AI cho diễn đàn. Hệ thống của chúng em được thiết kế theo hướng bảo mật cao, áp dụng cơ chế xác thực kép Access Token lưu ở memory và Refresh Token lưu ở HttpOnly Cookie để tránh lỗ hổng XSS và CSRF.
+- Đồng thời, điểm sáng của hệ thống là tích hợp các mô hình học máy (AI) để phân tích cảm xúc và phát hiện nội dung độc hại. Bộ kiểm duyệt AI hoạt động như một lớp lọc tự động ở Backend, giúp giảm tải công việc cho các Moderator (kiểm duyệt viên) bằng cách gắn cờ cảnh báo bài viết độc hại ngay lập tức khi người dùng nhấn nút Đăng bài."
+
+D. Câu hỏi phản biện thường gặp & Câu trả lời:
+* Hỏi: Tại sao lại chọn lưu trữ Refresh Token trong HttpOnly Cookie?
+  -> Trả lời: HttpOnly Cookie ngăn chặn JavaScript phía client truy cập vào token, giúp loại bỏ hoàn toàn nguy cơ bị hacker đánh cắp token thông qua các cuộc tấn công Cross-Site Scripting (XSS).
+* Hỏi: Nếu mô hình AI nhận diện nhầm nội dung (False Positive/Negative) thì sao?
+  -> Trả lời: Hệ thống không tự động xóa bài viết ngay khi AI báo độc hại mà chỉ 'gắn cờ cảnh báo' (flagged) và chuyển vào hàng đợi duyệt của Moderator. Moderator là con người sẽ đưa ra quyết định cuối cùng, giúp khắc phục sai sót của AI.
+
+---
+
+--------------------------------------------------------------------------------
+2.2. THÀNH VIÊN 2 (BACKEND 2) - BACKEND DEV, PHÂN TÍCH NGHIỆP VỤ & KIỂM THỬ DATABASE
+--------------------------------------------------------------------------------
+
+A. Nội dung công việc cụ thể:
+1. Phát triển các API thứ cấp mở rộng: API nhắn tin (Direct Messaging), API thông báo (Notifications), API quản lý báo cáo (Report & Moderation) và API dành riêng cho quản trị viên (Admin Dashboard).
+2. Phân tích nghiệp vụ hệ thống: Mô tả chi tiết 30 Use Cases của hệ thống. Vẽ các sơ đồ thiết kế hệ thống quan trọng bao gồm:
+   - Sơ đồ Use Case tổng quan (UML Use Case Diagram).
+   - Sơ đồ tuần tự (Sequence Diagram) cho các luồng phức tạp: Luồng Đăng nhập Google OAuth, Luồng gửi tin nhắn Real-time, Luồng xử lý Báo cáo vi phạm.
+   - Sơ đồ lớp (Class Diagram) thể hiện cấu trúc 13 Collections MongoDB.
+3. Kiểm thử Database (DB Integration Testing):
+   - Cài đặt và viết mã kiểm thử trực tiếp tầng Model/DB sử dụng MongoDB ảo trong bộ nhớ (mongodb-memory-server) kết hợp với Jest.
+   - Kiểm tra các ràng buộc dữ liệu (Unique Email, Unique Username, Schema Validation).
+4. Tối ưu hóa truy vấn cơ sở dữ liệu: Sử dụng MongoDB Compass để chạy chức năng Explain Plan trên các truy vấn nặng (tìm kiếm bài viết, tải comment đệ quy) nhằm kiểm tra xem truy vấn đang chạy kiểu quét chỉ mục (IXSCAN) hay quét toàn bảng (COLLSCAN). Từ đó bổ sung chỉ mục (Index) thích hợp.
+
+B. Hướng dẫn cách thực hiện kỹ thuật:
+- Viết API endpoints trong thư mục `web/backend/routes/` và `web/backend/controllers/` cho các file `messageController.js`, `reportController.js`.
+- Triển khai kiểm thử DB bằng cách cấu hình Jest chạy riêng lệnh `npm run test:db` sử dụng thư viện `mongodb-memory-server`. Viết test suite giả lập thao tác CRUD trực tiếp trên db ảo.
+- Sử dụng MongoDB Compass, chọn collection `posts` -> Tab `Explain Plan` -> Nhập query tìm kiếm -> Nhấp `Explain` -> Kiểm tra plan để đảm bảo có index sử dụng.
+
+C. Kịch bản thuyết trình (Nói gì trước hội đồng):
+- "Kính thưa Hội đồng, em phụ trách phân tích nghiệp vụ, vẽ sơ đồ thiết kế hệ thống và trực tiếp phát triển các API về nhắn tin, thông báo và quản trị. Để đảm bảo tính toàn vẹn và hiệu năng của cơ sở dữ liệu, em đã xây dựng một bộ kiểm thử tích hợp DB riêng sử dụng database giả lập trong bộ nhớ (In-memory Database).
+- Bên cạnh đó, em đã tối ưu hóa hiệu năng truy vấn cho diễn đàn bằng cách phân tích Explain Plan trên MongoDB Compass. Đối với các truy vấn tìm kiếm hoặc lọc bài viết theo danh mục, em đã đánh chỉ mục (Index) thích hợp giúp hệ thống chuyển từ quét toàn bộ dữ liệu (COLLSCAN) sang quét chỉ mục (IXSCAN), giảm thời gian phản hồi từ hàng trăm miligiây xuống dưới 2ms."
+
+D. Câu hỏi phản biện thường gặp & Câu trả lời:
+* Hỏi: COLLSCAN và IXSCAN khác nhau thế nào, tại sao phải tránh COLLSCAN?
+  -> Trả lời: COLLSCAN (Collection Scan) là cơ chế quét tuần tự qua từng bản ghi trong DB để tìm kết quả, cực kỳ tốn RAM và CPU khi dữ liệu lớn. IXSCAN (Index Scan) chỉ tìm kiếm trên cây chỉ mục đã được sắp xếp sẵn, giúp tìm ra bản ghi gần như lập tức mà không cần quét qua toàn bộ dữ liệu.
+* Hỏi: Cấu trúc quan hệ Cha-Con (Parent-Child) của Comment được thiết kế như thế nào trong MongoDB?
+  -> Trả lời: Mỗi Comment lưu một trường `parentComment` chứa ObjectId tham chiếu đến chính nó (Self-referencing) và trường `depth` để xác định độ sâu của comment trong cây thảo luận.
+
+---
+
+--------------------------------------------------------------------------------
+2.3. THÀNH VIÊN 3 (FRONTEND 1) - FRONTEND UI DEV & KIỂM THỬ FRONTEND/BACKEND
+--------------------------------------------------------------------------------
+
+A. Nội dung công việc cụ thể:
+1. Phát triển giao diện và logic các trang tương tác người dùng cốt lõi của Frontend (Vite + React.js + TailwindCSS):
+   - Trang chủ (`Home.jsx`): Hiển thị danh sách bài viết, bộ lọc sắp xếp bài viết Hot/Mới/Top, phân trang.
+   - Trang chi tiết bài viết (`PostDetail.jsx`): Hiển thị nội dung bài đăng chi tiết.
+   - Component bình luận lồng nhau (`CommentComponent.jsx`): Render cây comment đệ quy, nút Reply, nút Sửa/Xóa.
+   - Component Vote (`Vote.jsx`): Nút up/downvote có hiệu ứng chuyển màu sinh động.
+   - Trang cá nhân (`Profile.jsx`) và cài đặt cá nhân (`Settings.jsx`).
+2. Kiểm thử Frontend (Frontend Unit Testing): Viết unit test cho các React components quan trọng (PostCard, Vote, Navbar, Button) sử dụng Jest và React Testing Library để đảm bảo giao diện render đúng với các props đầu vào khác nhau.
+3. Kiểm thử Backend API (Backend Integration Testing): Phối hợp viết bộ kiểm thử API cho Backend bằng Jest + Supertest. Viết các kịch bản kiểm thử Happy Path (đăng nhập đúng, đăng bài thành công) và Error Path (đăng nhập sai mật khẩu, đăng bài thiếu tiêu đề, vi phạm phân quyền người dùng).
+
+B. Hướng dẫn cách thực hiện kỹ thuật:
+- Viết code Frontend trong thư mục `web/frontend/src/pages/` và `components/`.
+- Sử dụng đệ quy component trong React: Component `<CommentList>` chứa nhiều `<CommentItem>`, bên trong `<CommentItem>` nếu có comment con thì lại gọi lại `<CommentList comments={comment.replies} />`.
+- Viết test Frontend sử dụng `@testing-library/react` để giả lập click chuột, gõ văn bản và kiểm tra phần tử HTML có hiển thị trên DOM.
+- Viết test Backend API tại thư mục `web/backend/tests/` sử dụng `supertest(app).post('/api/auth/login').send(...)` và so sánh mã trạng thái (status code) trả về.
+
+C. Kịch bản thuyết trình (Nói gì trước hội đồng):
+- "Kính thưa Hội đồng, em phụ trách xây dựng giao diện người dùng chính bao gồm trang chủ, trang chi tiết bài viết, hệ thống bình luận đệ quy và tính năng bình chọn bài viết. Để đảm bảo chất lượng phần mềm, em cũng phụ trách viết các ca kiểm thử tự động (Unit Test) cho giao diện người dùng và các ca kiểm thử tích hợp (Integration Test) cho API Backend.
+- Bộ kiểm thử API của em chạy qua Supertest giúp giả lập chính xác các hành vi của người dùng từ đăng nhập, đăng bài cho đến các trường hợp cố tình gửi dữ liệu sai định dạng để kiểm tra khả năng bắt lỗi của Backend."
+
+D. Câu hỏi phản biện thường gặp & Câu trả lời:
+* Hỏi: Làm sao để kiểm thử một component React cần dữ liệu từ API?
+  -> Trả lời: Chúng em sử dụng cơ chế Mocking (giả lập API). Chúng em dùng React Testing Library kết hợp với việc mock Axios hoặc mock React Query để trả về dữ liệu mẫu lập tức, từ đó kiểm tra xem Component có hiển thị đúng trạng thái Loading, Success và Error hay không.
+* Hỏi: Thuật toán Reddit Hot Score ở Backend hoạt động thế nào và ảnh hưởng gì đến Frontend?
+  -> Trả lời: Thuật toán tính điểm hot dựa trên số vote (upvote - downvote) chia cho thời gian tồn tại của bài viết lũy thừa 1.5. Bài viết mới và nhiều vote sẽ được đẩy lên đầu trang chủ. Frontend chỉ cần gọi API sắp xếp theo 'hot' và hiển thị danh sách bài viết nhận được.
+
+---
+
+--------------------------------------------------------------------------------
+2.4. THÀNH VIÊN 4 (FRONTEND 2) - FRONTEND UI DEV & NHÚNG API / WEBSOCKET CLIENT
+--------------------------------------------------------------------------------
+
+A. Nội dung công việc cụ thể:
+1. Phát triển giao diện phụ và các trang quản trị, tương tác real-time của Frontend:
+   - Dashboard Admin (`AdminDashboard.jsx`): Biểu đồ thống kê lượng truy cập, danh sách quản lý người dùng, duyệt mở/khóa tài khoản.
+   - Trang duyệt Report (`Reports.jsx`): Danh sách bài đăng bị người dùng báo cáo vi phạm để Admin/Moderator xử lý.
+   - Trang nhắn tin trực tiếp (`Messages.jsx`): Giao diện chat trực tuyến 1-1 và phòng chat nhóm.
+   - Trang thông báo (`Notifications.jsx`): Danh sách thông báo tương tác.
+   - Trang tìm kiếm (`Search.jsx`): Giao diện tìm kiếm nâng cao.
+2. Nhúng API vào Frontend (API Integration):
+   - Cấu hình Axios Client, viết các Axios Interceptors trong `web/frontend/src/services/api.js` để tự động đính kèm JWT Access Token vào HTTP Header và tự động bắt lỗi 401 để gọi API refresh token để người dùng không bị đăng xuất giữa chừng.
+   - Thực hiện liên kết dữ liệu (data binding) từ API Backend vào toàn bộ các Component Frontend.
+3. Nhúng WebSocket Client (Real-time Integration):
+   - Thiết lập kết nối Socket.io-client phía Frontend.
+   - Lắng nghe các sự kiện real-time từ server để cập nhật giao diện tin nhắn tức thời và hiển thị thông báo đẩy (toast notifications) khi người dùng đang trực tuyến.
+
+B. Hướng dẫn cách thực hiện kỹ thuật:
+- Sử dụng thư viện `socket.io-client` để khởi tạo kết nối socket.
+- Viết hooks hoặc sử dụng Zustand/Redux Store để quản lý trạng thái tin nhắn và số lượng thông báo chưa đọc toàn cục.
+- Cấu hình Axios Interceptor:
+  ```javascript
+  api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      // Nếu lỗi 401 (Hết hạn token) và chưa thử refresh
+      // Gọi API refresh token, lưu Access Token mới và thực hiện lại request cũ.
+    }
+  );
+  ```
+- Sử dụng thư viện biểu đồ như `Recharts` để vẽ biểu đồ thống kê trực quan trên Admin Dashboard.
+
+C. Kịch bản thuyết trình (Nói gì trước hội đồng):
+- "Kính thưa Hội đồng, em phụ trách phát triển các trang quản trị của Admin, trang tin nhắn chat, trang thông báo và chịu trách nhiệm chính trong việc nhúng API kết nối giữa Frontend và Backend. Hệ thống kết nối của chúng em được tối ưu nhờ cơ chế tự động làm mới mã xác thực (Auto Token Refresh) giúp người dùng có trải nghiệm liên tục mà không bị gián đoạn.
+- Đặc biệt, em đã triển khai WebSocket Client để đồng bộ hóa luồng dữ liệu thời gian thực. Khi có tin nhắn mới hoặc thông báo mới, giao diện người dùng sẽ lập tức cập nhật mà không cần phải tải lại trang."
+
+D. Câu hỏi phản biện thường gặp & Câu trả lời:
+* Hỏi: Cơ chế Auto Token Refresh hoạt động cụ thể như thế nào ở Frontend?
+  -> Trả lời: Khi Access Token hết hạn, API trả về lỗi 401. Axios Interceptor sẽ chặn lỗi này lại, tạm dừng các request khác, tự động gọi API `/api/auth/refresh` gửi kèm Refresh Token. Sau khi nhận được Access Token mới, nó sẽ cập nhật vào bộ nhớ và chạy lại request bị lỗi trước đó.
+* Hỏi: Làm thế nào để phân quyền hiển thị menu Admin ở Frontend?
+  -> Trả lời: Chúng em kiểm tra thuộc tính `role` của người dùng được lưu trong Auth Store sau khi đăng nhập. Nếu role là 'user', chúng em sẽ ẩn menu Admin và sử dụng Route Guard chặn không cho chuyển hướng vào trang `/admin`.
+
+================================================================================
+3. KẾ HOẠCH PHỐI HỢP & LUỒNG TÍCH HỢP CHUNG (TIMELINE)
+================================================================================
+
+Để đảm bảo dự án chạy ổn định và ghép nối thành công, nhóm sẽ làm việc theo quy trình tích hợp cuốn chiếu 4 giai đoạn:
+
+GIAI ĐOẠN 1: Phát triển độc lập (Tuần 1)
+- Trưởng nhóm hoàn thiện các core API Backend và bàn giao tài liệu Swagger/Postman API.
+- Thành viên 2 hoàn thành phân tích nghiệp vụ, vẽ sơ đồ UML và viết code API phụ.
+- Thành viên 3 và 4 xây dựng xong toàn bộ khung giao diện UI tĩnh (Mockup) bằng React/TailwindCSS.
+
+GIAI ĐOẠN 2: Kiểm thử và Nhúng API (Tuần 2)
+- Thành viên 3 viết unit test giao diện và bắt đầu viết các ca kiểm thử tích hợp (Supertest) cho Backend.
+- Thành viên 2 viết bộ test DB và chạy Explain Plan để tối ưu hóa chỉ mục MongoDB.
+- Thành viên 4 bắt đầu nhúng các API tĩnh của Backend vào Frontend, cấu hình Axios Interceptors.
+
+GIAI ĐOẠN 3: Tích hợp Real-time & AI (Tuần 3)
+- Trưởng nhóm tích hợp hoàn chỉnh mô hình AI vào Backend.
+- Thành viên 4 thiết lập kết nối Socket.io Client với Server.
+- Thành viên 3 tích hợp hiển thị cảm xúc AI vào comment và hoàn thiện UI dựa trên kết quả trả về của API.
+
+GIAI ĐOẠN 4: Rà soát & Chuẩn bị Bảo vệ (Tuần 4)
+- Trưởng nhóm rà soát mã nguồn (QA), chạy test tự động toàn hệ thống để phát hiện và sửa các lỗi xung đột.
+- Thành viên 2 tổng hợp báo cáo và tài liệu kỹ thuật cuối cùng.
+- Thành viên 4 kiểm tra tính tương thích Responsive trên thiết bị di động.
+- Thành viên 3 hoàn thiện slide thuyết trình và cả nhóm tiến hành thuyết trình thử nghiệm, tập trả lời phản biện chéo.
+================================================================================
