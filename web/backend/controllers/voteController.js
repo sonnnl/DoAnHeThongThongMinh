@@ -213,8 +213,8 @@ exports.getVoteStatus = async (req, res, next) => {
 
     const vote = await Vote.findOne({
       user: req.user.id,
-      contentType,
-      contentId,
+      targetType: contentType,
+      targetId: contentId,
     }).lean();
 
     res.status(200).json({
@@ -239,8 +239,8 @@ exports.getUpvoters = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const votes = await Vote.find({
-      contentType,
-      contentId,
+      targetType: contentType,
+      targetId: contentId,
       voteType: "upvote",
     })
       .sort({ createdAt: -1 })
@@ -282,8 +282,8 @@ exports.getDownvoters = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const votes = await Vote.find({
-      contentType,
-      contentId,
+      targetType: contentType,
+      targetId: contentId,
       voteType: "downvote",
     })
       .sort({ createdAt: -1 })
